@@ -1,84 +1,63 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import logo from "../assets/logo.webp";
 import "../styles/global.css";
 import "../App.css";
-import { useParams } from "react-router-dom";
 
 function ProspectForm() {
-  const { id } = useParams();
   const [setProspectType] = useState("");
+  const [formStep, setFormStep] = useState(1); // Étape du formulaire (1 = première, 2 = deuxième)
   const [formData, setFormData] = useState({
-    nomComplet: "",
-    email: "",
-    telephone: "",
-    adresse: "",
-    documents: {
-      bilanDocument: [],
-      identityDocument: [],
-      kbisDocument: [],
-      statusDocument: [],
-      pieceIdentite: [],
-    },
+    secteurActivite: "",
+    activitePrincipale: "",
+    formeSociale: "",
+    denominationSociale: "",
+    nomCommercial: "",
+    sigle: "",
   });
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
-  const [showDialog, setShowDialog] = useState(false); // Contrôle l'affichage du dialog
+  const [showDialog, setShowDialog] = useState(false);
 
+  // Gère les changements dans tous les champs
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  useEffect(() => {
-    const fetchFormLead = async () => {
-      try {
-        const response = await fetch(
-          `https://backend-myalfa.vercel.app/api/formleads/${id}`
-        );
-        if (!response.ok) {
-          throw new Error("Erreur lors de la récupération des données");
-        }
-        const result = await response.json();
-        const data = result.data;
-
-        setFormData((prevFormData) => ({
-          ...prevFormData,
-          nomComplet: `${data.nom} ${data.prenom}`,
-          email: data.mail || "",
-          telephone: data.tel || "",
-        }));
-      } catch (error) {
-        console.error("Erreur lors du chargement du formulaire :", error);
-      }
-    };
-
-    if (id) {
-      fetchFormLead();
+  // Passer à l'étape suivante
+  const handleNext = () => {
+    if (formData.secteurActivite && formData.formeSociale) {
+      setFormStep(2);
+    } else {
+      alert("Veuillez remplir les champs obligatoires avant de continuer.");
     }
-  }, [id]);
+  };
 
+  // Revenir à l'étape précédente
+  const handlePrevious = () => {
+    setFormStep(1);
+  };
+
+  // Soumission finale du formulaire
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
+    console.log("🚀 Envoi du formulaire avec les données :", formData);
+
     try {
-      // --- 🔹 5. Réinitialisation
       setMessage("Formulaire envoyé avec succès !");
       setFormData({
-        nomComplet: "",
-        email: "",
-        telephone: "",
-        adresse: "",
-        documents: {
-          bilanDocument: [],
-          identityDocument: [],
-          kbisDocument: [],
-          statusDocument: [],
-          pieceIdentite: [],
-        },
+        secteurActivite: "",
+        activitePrincipale: "",
+        formeSociale: "",
+        denominationSociale: "",
+        nomCommercial: "",
+        sigle: "",
       });
       setProspectType("");
+      setFormStep(1);
       setShowDialog(true);
     } catch (err) {
       console.error("❌ Erreur lors de l'envoi :", err);
@@ -91,64 +70,136 @@ function ProspectForm() {
 
   return (
     <div className="all">
-      <div className="header">
-        <div className="text-img">
-          <img src={logo} alt="Logo" className="logoImage" />
-          <h3>DOCUMENT DE CREATION DE SOCIETE</h3>
-          <p>
-            Remplissez ce formulaire afin de préparer efficacement les documents
-            nécessaires à la création ou à l’immatriculation de votre société !
-          </p>
-        </div>
-        <form onSubmit={handleSubmit} className="prospect-form">
-          <p>Nom complet:</p>
-          <input
-            type="text"
-            name="nomComplet"
-            value={formData.nomComplet}
-            onChange={handleInputChange}
-            required
-          />
-          <p>Email:</p>
-          <input
-            type="email"
-            name="email"
-            value={formData.email}
-            onChange={handleInputChange}
-            required
-          />
-          <p>Téléphone:</p>
-          <input
-            type="tel"
-            name="telephone"
-            value={formData.telephone}
-            onChange={handleInputChange}
-            required
-          />
-          <p>Adresse:</p>
-          <input
-            type="text"
-            name="adresse"
-            value={formData.adresse}
-            onChange={handleInputChange}
-            required
-          />
-        </form>
-      </div>
+      <br />
+      <div className="form-container">
+        <div className="header">
+          <div className="text-img">
+            <img src={logo} alt="Logo" className="logoImage" />
+            <h3>CREATION DE SOCIETE</h3>
+            <p>
+              Remplissez ce formulaire afin de préparer efficacement
+              l’immatriculation de votre société !
+            </p>
+          </div>
 
-      {loading ? (
-        <div className="loading-container">
-          <div className="spinner"></div>
-          <p>
-            Veuillez patienter, l'importation des fichiers et l'envoi du mail
-            sont en cours...
-          </p>
+          <form onSubmit={handleSubmit} className="prospect-form">
+            {formStep === 1 && (
+              <>
+                <p>
+                  Quel sera le secteur d’activité :{" "}
+                  <span style={{ color: "red" }}>*</span>
+                </p>
+                <select
+                  name="secteurActivite"
+                  value={formData.secteurActivite}
+                  onChange={handleInputChange}
+                  required
+                >
+                  <option value=""></option>
+                  <option value="commerce_restauration">
+                    Commerce / restauration
+                  </option>
+                  <option value="artisan_btp">Artisan & BTP</option>
+                  <option value="investissement_immobilier">
+                    Investissement immobilier
+                  </option>
+                  <option value="medical_paramedical">
+                    Médical / paramédical
+                  </option>
+                  <option value="freelance">Freelance</option>
+                  <option value="transport">Transport</option>
+                  <option value="automobile">Automobile</option>
+                  <option value="autre">Autre (à préciser)</option>
+                </select>
+
+                <p>Principales activités :</p>
+                <input
+                  type="text"
+                  name="activitePrincipale"
+                  value={formData.activitePrincipale}
+                  onChange={handleInputChange}
+                />
+                <br />
+                <p>
+                  Sélectionner votre forme sociale :{" "}
+                  <span style={{ color: "red" }}>*</span>
+                </p>
+                <select
+                  name="formeSociale"
+                  value={formData.formeSociale}
+                  onChange={handleInputChange}
+                  required
+                >
+                  <option value=""></option>
+                  <option value="micro">Micro</option>
+                  <option value="entreprise_individuelle">
+                    Entreprise individuelle
+                  </option>
+                  <option value="lmnp">LMNP</option>
+                  <option value="eurl_sarl">EURL / SARL</option>
+                  <option value="sasu_sas">SASU / SAS</option>
+                  <option value="sci">SCI</option>
+                  <option value="aide">
+                    Je ne sais pas, j’ai besoin d’aide
+                  </option>
+                </select>
+
+                <div style={{ marginTop: "20px" }}>
+                  <button type="button" onClick={handleNext}>
+                    Suivant
+                  </button>
+                </div>
+              </>
+            )}
+
+            {formStep === 2 && (
+              <>
+                <h3>Identité de l’entreprise</h3>
+                <p>Dénomination sociale :</p>
+                <input
+                  type="text"
+                  name="denominationSociale"
+                  value={formData.denominationSociale}
+                  onChange={handleInputChange}
+                  required
+                />
+
+                <p>Nom commercial :</p>
+                <input
+                  type="text"
+                  name="nomCommercial"
+                  value={formData.nomCommercial}
+                  onChange={handleInputChange}
+                  required
+                />
+
+                <p>Sigle :</p>
+                <input
+                  type="text"
+                  name="sigle"
+                  value={formData.sigle}
+                  onChange={handleInputChange}
+                />
+
+                <div
+                  style={{
+                    marginTop: "20px",
+                    display: "flex",
+                    gap: "8%",
+                  }}
+                >
+                  <button type="button" onClick={handlePrevious}>
+                    Précédent
+                  </button>{" "}
+                  <button type="submit" disabled={loading}>
+                    {loading ? "Envoi..." : "Soumettre"}
+                  </button>
+                </div>
+              </>
+            )}
+          </form>
         </div>
-      ) : (
-        <button type="button" onClick={handleSubmit}>
-          Envoyer
-        </button>
-      )}
+      </div>
 
       {showDialog && (
         <div className="dialog-overlay">
