@@ -1,0 +1,11 @@
+button {
+  margin-top: 3%;
+  border: 1px solid #ccc;
+  border-radius: 25px;
+  font-size: 1rem;
+  width: 25%;
+  background: #840040;
+  color: white;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}

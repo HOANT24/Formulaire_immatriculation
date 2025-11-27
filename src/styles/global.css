@@ -55,8 +55,8 @@
   display: flex;
   flex-direction: column;
   width: 48%;
-  padding-left: 12%;
-  padding-right: 12%;
+  padding-left: 5%;
+  padding-right: 5%;
   margin-left: 12%; /* espace pour la navBar */
   overflow-y: auto;
 }
@@ -80,7 +80,6 @@
 
 .display {
   width: 100%;
-  height: 80vh;
   background-color: white;
   box-shadow: 1px -3px 16px -1px #cacaca;
   border-radius: 10px;
@@ -115,6 +114,7 @@
 
   .content {
     width: 100%;
+    margin-left: 0%;
   }
 
   /* Overlay pour fermer la navbar */
@@ -127,4 +127,63 @@
     background: rgba(0, 0, 0, 0); /* transparent mais cliquable */
     z-index: 900; /* derrière la navbar mais devant le reste */
   }
+}
+
+.stepper {
+  display: flex;
+  justify-content: space-between;
+  margin: 10px 0%;
+  position: relative;
+}
+
+.step-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  flex: 1;
+}
+
+/* ✅ Ligne entre les cercles */
+.step-item:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  width: 100%;
+  height: 2px;
+  background: lightgray;
+  z-index: 0;
+}
+
+/* ✅ Ligne active */
+.step-item.active:not(:last-child)::after {
+  background: #840040;
+}
+
+/* ✅ Cercle */
+.circle {
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  background: lightgray;
+  margin-bottom: 6px;
+  position: relative;
+  z-index: 1;
+}
+
+.circle.active {
+  background: #840040;
+}
+
+/* ✅ Label */
+.label {
+  margin-top: 5%;
+  font-weight: normal;
+  font-size: 1rem;
+}
+
+/* ✅ Label bold quand actif */
+.step-item.active .label {
+  font-weight: bold;
 }

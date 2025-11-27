@@ -2,9 +2,15 @@ import React, { useState } from "react";
 import "../styles/global.css";
 import logo from "../assets/logo.webp";
 import "../App.css";
+import Offre from "../pages/offre/offre";
+import Rdv from "../pages/rdv/rdv";
+import Lancement from "../pages/lancement/lancement";
+import Status from "../pages/status/status";
+import { useEtape } from "../EtatGlobal";
 
 function ProspectForm() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const { etape, setEtape } = useEtape();
 
   const toggleMenu = () => {
     setMenuOpen(!menuOpen);
@@ -28,9 +34,8 @@ function ProspectForm() {
 
       <div className={`navBar ${menuOpen ? "open" : ""}`}>
         <br />
-        <p>Profile</p>
-        <br />
-        <br />
+        <p>Jonathan Rantsa</p>
+        <hr style={{ margin: "25px 1px" }} />
         <br />
         <p>Création d'entreprise</p>
         <div className="logoContainer">
@@ -42,14 +47,31 @@ function ProspectForm() {
       <div className="content">
         <br />
         <br />
-        <div>
-          <p>Liste des étapes</p>
+        <div className="stepper">
+          {["Offre & devis", "Information & RDV", "Lancement", "Status"].map(
+            (label, index) => (
+              <div
+                className={`step-item ${etape > index ? "active" : ""}`}
+                key={index}
+                onClick={() => setEtape(index)}
+              >
+                <div
+                  className={`circle ${etape >= index ? "active" : ""}`}
+                ></div>
+                <span className="label">{label}</span>
+              </div>
+            )
+          )}
         </div>
+
         <br />
         <br />
-        <br />
+
         <div className="display">
-          <p>test</p>
+          {etape === 0 && <Offre />}
+          {etape === 1 && <Rdv />}
+          {etape === 2 && <Lancement />}
+          {etape === 3 && <Status />}
         </div>
         <br />
         <br />
