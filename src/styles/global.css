@@ -12,6 +12,158 @@
   overflow-y: auto;
 }
 
+/* ------------------------------------------ */
+
+/* Bouton rond en bas à droite */
+.chat-button {
+  position: fixed;
+  bottom: 25px;
+  right: 25px;
+  width: 55px;
+  height: 55px;
+  background: #840040;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  z-index: 2000;
+}
+
+.chat-button:hover {
+  transform: scale(1.08);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+
+/* Overlay Chat */
+.chat-overlay {
+  position: fixed;
+  bottom: 100px;
+  right: 25px;
+  width: 320px;
+  height: 420px;
+  background: white;
+  border-radius: 18px;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform: translateY(30px);
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.35s ease;
+  z-index: 2100;
+}
+
+/* Anim quand ouvert */
+.chat-overlay.open {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Header */
+.chat-header {
+  background: #840040;
+  padding: 14px 18px;
+  color: white;
+  font-weight: bold;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.close-chat {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+/* Corps */
+.chat-body {
+  flex: 1;
+  padding: 20px;
+  background: #f6f7ff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.placeholder {
+  font-size: 17px;
+  color: #4a6cff;
+  opacity: 0.75;
+  font-style: italic;
+  text-align: center;
+  animation: pulse 2s infinite ease-in-out;
+}
+
+/* Petit effet glow */
+@keyframes pulse {
+  0% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+}
+
+.chat-tooltip {
+  position: fixed;
+  bottom: 35px;
+  right: 95px;
+  background: white;
+  padding: 12px 12px;
+  border-radius: 14px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  max-width: 300px;
+  font-size: 14px;
+  color: #840040;
+  animation: tooltipAnim 0.6s ease, fadeOut 6s ease forwards;
+  z-index: 2100;
+  border: 1px solid #840040;
+  font-weight: bold;
+}
+
+/* Animation entrée */
+@keyframes tooltipAnim {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Fade-out en douceur */
+@keyframes fadeOut {
+  0% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ------------------------------------------ */
+
 /* Barre en haut pour mobile/tablette */
 .topBar {
   display: none; /* cachée sur desktop */
@@ -63,8 +215,8 @@
 
 .logo {
   height: auto;
-  width: 80%;
-  margin-left: 10%;
+  width: 100%;
+  margin-left: 15%;
 }
 
 .logoContainer {
