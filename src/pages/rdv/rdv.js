@@ -1,13 +1,21 @@
 import React, { useState } from "react";
 import "./rdv.css";
 import {
+  FaStore,
   FaUtensils,
   FaHammer,
   FaBuilding,
+  FaHome,
   FaStethoscope,
+  FaBriefcase,
+  FaHandsHelping,
+  FaChalkboardTeacher,
   FaLaptopCode,
+  FaCity,
   FaTruck,
   FaCar,
+  FaUser,
+  FaUsers,
 } from "react-icons/fa";
 
 function Rdv() {
@@ -17,8 +25,12 @@ function Rdv() {
   const [formData, setFormData] = useState({
     secteur: "",
     formeSociale: "",
-    nomEntreprise: "",
-    ville: "",
+    formeGroupe: "",
+    nom: "",
+    prenom: "",
+    telephone: "",
+    email: "",
+    motdepasse: "",
   });
 
   const [isAutre, setIsAutre] = useState(false);
@@ -57,23 +69,58 @@ function Rdv() {
   };
 
   const secteurIcons = {
-    "Commerce / restauration": <FaUtensils size={20} />,
+    Commerce: <FaStore size={20} />, // plus adapté qu'une fourchette
+    "Hôtellerie / restauration": <FaUtensils size={20} />,
+
     "Artisan & BTP": <FaHammer size={20} />,
-    "Investissement immobilier": <FaBuilding size={20} />,
+
+    "Investissement immobilier": <FaCity size={20} />,
+    "Agent immobilier": <FaHome size={20} />,
+
     "Médical / paramédical": <FaStethoscope size={20} />,
+
+    "Services / tertiaire": <FaBriefcase size={20} />,
+    "Services à la personne": <FaHandsHelping size={20} />,
+
+    "Consulting / formation": <FaChalkboardTeacher size={20} />,
     Freelance: <FaLaptopCode size={20} />,
+
+    "Digital / tech": <FaLaptopCode size={20} />,
+
+    Holding: <FaBuilding size={20} />,
+
     Transport: <FaTruck size={20} />,
     Automobile: <FaCar size={20} />,
+  };
+
+  const getFormesSociales = () => {
+    const s = formData.secteur;
+    const g = formData.formeGroupe;
+
+    if (!g) return [];
+
+    if (s === "Médical / paramédical") {
+      return g === "Seul"
+        ? ["EI BNC", "EI IS", "SELARLU", "SELASU"]
+        : ["SELARL", "SELAS", "SELAFA", "SELCA", "SCP", "SCM"];
+    }
+
+    if (s === "Investissement immobilier") {
+      return g === "Seul"
+        ? ["LMNP", "EURL", "SASU"]
+        : ["SCI", "SAS", "SARL IS", "SARL de famille"];
+    }
+
+    // Autres cas
+    return g === "Seul"
+      ? ["Micro", "Entreprise individuelle", "LMNP", "EURL", "SASU"]
+      : ["SARL", "SAS", "SCI"];
   };
 
   return (
     <div className="containerRdv">
       {/* ✅ AFFICHAGE DES INFOS sélectionnées */}
       <div className="information">
-        <br />
-        <br />
-        <br />
-        <br />
         <br />
         <br />
         <br />
@@ -96,13 +143,13 @@ function Rdv() {
             {" "}
             Vous avez des difficulté ?
           </p>
-          <p style={{ color: "grey" }}>
+          <p style={{ color: "grey", textAlign: "center" }}>
             {" "}
             Contacter nos experts afin de vous aidez d'avantage{" "}
           </p>
           <div
             style={{
-              width: "70%",
+              width: "80%",
               textAlign: "center",
               border: "2px solid #840040",
               padding: "12.5px",
@@ -113,33 +160,49 @@ function Rdv() {
               cursor: "pointer",
             }}
           >
-            <p style={{ fontSize: "1.2rem" }}>Prendre un rdv gratuit</p>
+            <p style={{ fontSize: "1rem" }}>Prendre un rdv gratuit</p>
           </div>
         </div>
 
         <br />
         <br />
-        <br />
-        {formData.secteur && (
-          <>
-            <h3 style={{ color: "#013a51", marginBottom: "15px" }}>
-              Récapitulatif
-            </h3>
-            <p> Principales activités : {formData.secteur}</p>
-            <p>Frome sociale : {formData.formeSociale}</p>
-          </>
-        )}
-
-        {/* 
-        <p>
-          <strong>Forme sociale :</strong> {formData.formeSociale || "—"}
-        </p>
-        <p>
-          <strong>Nom entreprise :</strong> {formData.nomEntreprise || "—"}
-        </p>
-        <p>
-          <strong>Ville :</strong> {formData.ville || "—"}
-        </p> */}
+        <div
+          style={{
+            border: "2px solid #ccc",
+            padding: "25px 15px",
+            height: "auto",
+            borderRadius: "10px",
+            margin: "1% 2%",
+          }}
+        >
+          <h4 style={{ color: "#013a51", marginBottom: "10px" }}>
+            Récapitulatif de vos informations :
+          </h4>
+          <hr style={{ color: "#013a51", marginBottom: "20px" }} />
+          {formData.secteur && (
+            <p>
+              {" "}
+              Principales activités :{" "}
+              <strong style={{ color: "#013a51" }}>{formData.secteur}</strong>
+            </p>
+          )}
+          {formData.formeGroupe && (
+            <p style={{ marginTop: "8px" }}>
+              Entreprenariat :{" "}
+              <strong style={{ color: "#013a51" }}>
+                {formData.formeGroupe}
+              </strong>
+            </p>
+          )}
+          {formData.formeSociale && (
+            <p style={{ marginTop: "8px" }}>
+              Frome sociale :{" "}
+              <strong style={{ color: "#013a51" }}>
+                {formData.formeSociale}
+              </strong>
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="rdv-container">
@@ -175,11 +238,18 @@ function Rdv() {
 
               <div className="secteur-grid">
                 {[
-                  "Commerce / restauration",
+                  "Commerce",
+                  "Hôtellerie / restauration",
                   "Artisan & BTP",
                   "Investissement immobilier",
+                  "Agent immobilier",
                   "Médical / paramédical",
+                  "Services / tertiaire",
+                  "Services à la personne",
+                  "Consulting / formation",
                   "Freelance",
+                  "Digital / tech",
+                  "Holding",
                   "Transport",
                   "Automobile",
                   "Autre Secteur",
@@ -204,7 +274,9 @@ function Rdv() {
                       }
                       onChange={(e) => handleSecteurChange(e.target.value)}
                     />
+
                     <div className="secteur-icon">{secteurIcons[item]}</div>
+
                     <div
                       className="secteur-label"
                       style={{ marginTop: "8%", fontSize: "0.9rem" }}
@@ -214,6 +286,7 @@ function Rdv() {
                   </label>
                 ))}
               </div>
+
               {isAutre && (
                 <div style={{ width: "100%", marginTop: "2%" }}>
                   <input
@@ -237,93 +310,174 @@ function Rdv() {
                 style={{
                   fontSize: "1.5rem",
                   fontWeight: "bold",
-                  marginBottom: "2%",
                   color: "#013a51",
+                  marginBottom: "10px",
                 }}
               >
-                Sélectionner votre forme sociale
+                Entreprenez-vous seul ou à plusieurs ?
               </p>
-              {step > 1 && (
-                <div
-                  onClick={prevStep}
-                  style={{
-                    color: "#013a51",
-                    marginTop: "10px",
-                    cursor: "pointer",
-                  }}
-                >
-                  Précédent
-                  <hr
-                    style={{
-                      width: "9%",
-                      height: "3px",
-                      backgroundColor: "#013a51",
-                    }}
-                  />
-                </div>
-              )}
-              <br />
 
-              <div className="grid-options">
-                {[
-                  "Micro",
-                  "Entreprise individuelle",
-                  "LMNP",
-                  "EURL / SARL",
-                  "SASU / SAS",
-                  "SCI",
-                ].map((option) => (
-                  <div
-                    key={option}
-                    className={`option-card ${
-                      formData.formeSociale === option ? "active" : ""
-                    }`}
-                    onClick={() =>
-                      setFormData({ ...formData, formeSociale: option })
-                    }
-                  >
-                    {option}
-                  </div>
-                ))}
-
-                <div
-                  className={`option-card full-width ${
-                    formData.formeSociale ===
-                    "Je ne sais pas, j’ai besoin d’aide"
-                      ? "active"
-                      : ""
-                  }`}
-                  onClick={() =>
-                    setFormData({
-                      ...formData,
-                      formeSociale: "Je ne sais pas, j’ai besoin d’aide",
-                    })
-                  }
-                >
-                  Je ne sais pas, j’ai besoin d’aide
-                </div>
+              <div
+                onClick={prevStep}
+                style={{
+                  cursor: "pointer",
+                  color: " #11abec",
+                  textDecoration: "underline",
+                }}
+              >
+                Précédent
               </div>
+              <br />
+              <br />
+              {/* 🔥 Étape 2.1 : deux tuiles */}
+              <div className="grid-options-container">
+                {[
+                  { label: "Seul", icon: FaUser },
+                  { label: "A plusieurs", icon: FaUsers },
+                ].map((v) => {
+                  const isActive = formData.formeGroupe === v.label;
+                  const IconComponent = v.icon;
+                  return (
+                    <div
+                      key={v.label}
+                      className={`option-card ${isActive ? "active" : ""}`}
+                      onClick={() =>
+                        setFormData({
+                          ...formData,
+                          formeGroupe: v.label,
+                          formeSociale: "",
+                        })
+                      }
+                    >
+                      <div style={{ marginBottom: "8px" }}>
+                        <IconComponent
+                          size={20}
+                          color={isActive ? "#fff" : "#840040"}
+                        />
+                      </div>
+                      {v.label}
+                    </div>
+                  );
+                })}
+              </div>
+              <br />
+              {/* 🔥 Étape 2.2 : Formes sociales selon conditions */}
+              {formData.formeGroupe && (
+                <>
+                  <p
+                    style={{
+                      marginTop: "25px",
+                      fontWeight: "bold",
+                      color: "#013a51",
+                    }}
+                  >
+                    Sélectionner votre forme sociale :
+                  </p>
+                  <br />
+                  <div className="grid-options">
+                    {getFormesSociales().map((option) => (
+                      <div
+                        key={option}
+                        className={`option-card ${
+                          formData.formeSociale === option ? "active" : ""
+                        }`}
+                        onClick={() =>
+                          setFormData({ ...formData, formeSociale: option })
+                        }
+                      >
+                        {option}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           )}
 
           {/* ✅ Étape 3 */}
           {step === 3 && (
-            <div>
-              <h3>Identité de l’entreprise</h3>
-              <input
-                type="text"
-                name="nomEntreprise"
-                placeholder="Nom de l'entreprise"
-                value={formData.nomEntreprise}
-                onChange={handleChange}
-              />
-              <input
-                type="text"
-                name="ville"
-                placeholder="Ville"
-                value={formData.ville}
-                onChange={handleChange}
-              />
+            <div className="step-three-form">
+              <p
+                style={{
+                  fontSize: "1.5rem",
+                  fontWeight: "bold",
+                  color: "#013a51",
+                  marginBottom: "10px",
+                }}
+              >
+                L'identité de votre entreprise
+              </p>
+              <div
+                onClick={prevStep}
+                style={{
+                  cursor: "pointer",
+                  color: " #11abec",
+                  textDecoration: "underline",
+                }}
+              >
+                Précédent
+              </div>
+              <br />
+              <br />
+              <div style={{ display: "flex", gap: "20px" }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ margin: 0 }}>Nom</label>
+                  <input
+                    type="text"
+                    name="nom"
+                    placeholder="Nom"
+                    value={formData.nom}
+                    onChange={handleChange}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ margin: 0 }}>Prénom</label>
+                  <input
+                    type="text"
+                    name="prenom"
+                    placeholder="Prénom"
+                    value={formData.prenom}
+                    onChange={handleChange}
+                  />
+                </div>
+              </div>
+              <div style={{ marginTop: "20px" }}>
+                <label style={{ margin: 0 }}>Téléphone</label>
+                <input
+                  type="text"
+                  name="telephone"
+                  placeholder="Numéro Téléphone"
+                  value={formData.telephone}
+                  onChange={handleChange}
+                />
+              </div>
+              <div style={{ marginTop: "20px" }}>
+                <label style={{ margin: 0 }}>Email</label>
+                <input
+                  type="email"
+                  name="email"
+                  placeholder="Email"
+                  value={formData.email}
+                  onChange={handleChange}
+                />
+              </div>
+              <div style={{ marginTop: "20px" }}>
+                <label style={{ margin: 0 }}>
+                  Mot de passe ( 6 caratères minimum )
+                </label>
+                <input
+                  type="password"
+                  name="motdepasse"
+                  placeholder="******"
+                  value={formData.motdepasse}
+                  onChange={handleChange}
+                />
+              </div>
+              <br />
+              <p style={{ color: "#840040", fontWeight: "bold" }}>
+                * Ces informations vont servir à créer un votre compte dans
+                notre cabinet
+              </p>
             </div>
           )}
 

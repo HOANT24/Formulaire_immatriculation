@@ -85,6 +85,16 @@ button {
   border-color: #840040;
 }
 
+.grid-options-container {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 50px;
+  margin-left: 20%;
+  margin-right: 20%;
+  align-items: center;
+  justify-content: center;
+}
+
 .grid-options {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -115,4 +125,22 @@ button {
 /* Last option full width */
 .option-card.full-width {
   grid-column: 1 / -1;
+}
+
+.step-three-form input {
+  width: 100%;
+  padding: 15px;
+  margin-top: 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc; /* bordure fine et propre */
+  outline: none; /* enlève la bordure bleue par défaut */
+  transition: border-color 0.2s; /* effet plus doux au focus */
+}
+
+.step-three-form input:focus {
+  border-color: #840040; /* couleur plus pro au focus */
+}
+
+.step-three-form label {
+  color: #013a51;
 }
