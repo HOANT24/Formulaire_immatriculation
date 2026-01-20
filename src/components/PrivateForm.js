@@ -44,6 +44,8 @@ export default function CompanyCreationSimple() {
   const handleSubmit = async (finalData) => {
     setIsSubmitting(true);
 
+    console.log("FormData submitted:", finalData);
+
     try {
       // Simulation d’envoi
       await new Promise((resolve) => setTimeout(resolve, 1000));

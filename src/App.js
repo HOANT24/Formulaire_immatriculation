@@ -7,17 +7,44 @@ import { EtapeProvider } from "./EtatGlobal";
 
 function App() {
   return (
-    <EtapeProvider>
-      <Router>
-        <div className="App">
-          <Routes>
-            <Route path="/" element={<ProspectForm />} />
-            <Route path="/private" element={<PrivateForm />} />
-            <Route path="/:id" element={<ProspectForm />} />
-          </Routes>
-        </div>
-      </Router>
-    </EtapeProvider>
+    <Router>
+      <div className="App">
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <EtapeProvider>
+                <ProspectForm />
+              </EtapeProvider>
+            }
+          />
+          <Route
+            path="/private"
+            element={
+              <EtapeProvider>
+                <PrivateForm />
+              </EtapeProvider>
+            }
+          />
+          <Route
+            path="/private/:id"
+            element={
+              <EtapeProvider>
+                <PrivateForm />
+              </EtapeProvider>
+            }
+          />
+          <Route
+            path="/:id"
+            element={
+              <EtapeProvider>
+                <ProspectForm />
+              </EtapeProvider>
+            }
+          />
+        </Routes>
+      </div>
+    </Router>
   );
 }
 

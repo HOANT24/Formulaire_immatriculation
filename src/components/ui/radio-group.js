@@ -1,44 +1,43 @@
 import * as React from "react";
-import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
-import { Circle } from "lucide-react";
-
 import { cn } from "../lib/utils";
 
-const RadioGroup = React.forwardRef(({ className, ...props }, ref) => {
-  return (
-    <RadioGroupPrimitive.Root
-      className={cn("grid gap-2", className)}
-      {...props}
-      ref={ref}
-    />
-  );
-});
-RadioGroup.displayName = RadioGroupPrimitive.Root.displayName;
+const RadioGroupContext = React.createContext(null);
 
-const RadioGroupItem = React.forwardRef(({ className, ...props }, ref) => {
+const RadioGroup = ({ value, onValueChange, className, children }) => {
   return (
-    <RadioGroupPrimitive.Item
-      ref={ref}
-      {...props}
+    <RadioGroupContext.Provider value={{ value, onValueChange }}>
+      <div className={cn(className)}>{children}</div>
+    </RadioGroupContext.Provider>
+  );
+};
+
+const RadioGroupItem = ({ value, id, className }) => {
+  const context = React.useContext(RadioGroupContext);
+
+  if (!context) {
+    throw new Error("RadioGroupItem must be used inside RadioGroup");
+  }
+
+  const { value: selectedValue, onValueChange } = context;
+  const checked = selectedValue === value;
+
+  return (
+    <input
+      type="radio"
+      id={id}
+      name="radio-group"
+      checked={checked}
+      onChange={() => onValueChange(value)}
       className={cn(
-        "relative h-0 w-0 rounded-full",
-        "border-2 border-gray-600 bg-gray-100 border-[transparent]",
-        "flex items-center justify-center",
-        "data-[state=checked]:bg-transparent",
-        "data-[state=checked]:border-[transparent]",
-        "focus:outline-none focus-visible:ring-1 focus-visible:ring-[#840040]",
-        "disabled:cursor-not-allowed disabled:opacity-50",
+        "relative h-5 w-5 cursor-pointer appearance-none rounded-full border-2",
+        "border-gray-400 checked:border-[#840040]",
+        "after:absolute after:inset-1 after:rounded-full after:bg-[#840040]",
+        "after:opacity-0 checked:after:opacity-100",
+        "transition-all",
         className
       )}
-      style={{ borderRadius: "50px" }}
-    >
-      <RadioGroupPrimitive.Indicator className="flex items-center justify-center">
-        <Circle className="h-4.5 w-4.5 fill-[#840040] text-[#840040]" />
-      </RadioGroupPrimitive.Indicator>
-    </RadioGroupPrimitive.Item>
+    />
   );
-});
-
-RadioGroupItem.displayName = RadioGroupPrimitive.Item.displayName;
+};
 
 export { RadioGroup, RadioGroupItem };

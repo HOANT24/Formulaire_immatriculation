@@ -4,13 +4,7 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
 import { Button } from "../ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../ui/select";
+import { SimpleSelect } from "../ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Switch } from "../ui/switch";
 import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
@@ -46,11 +40,12 @@ import {
 } from "../ui/collapsible";
 import { Checkbox } from "../ui/checkbox";
 import { cn } from "../lib/utils";
+import { useEtape } from "../../EtatGlobal.js";
 
 const companyTypes = ["SASU", "SAS", "EURL", "SARL", "SCI", "SNC", "SA"];
 
 const headquartersTypes = [
-  { id: "owned", label: "Propriété", doc: "Taxe foncière" },
+  { id: "Propriétaire", label: "Propriété", doc: "Taxe foncière" },
   {
     id: "rented",
     label: "Location",
@@ -144,13 +139,15 @@ const advancedClauses = {
   ],
 };
 
-export default function SimplifiedForm({
-  data,
-  onChange,
-  onSubmit,
-  isSubmitting,
-}) {
-  const [formData, setFormData] = useState(data);
+export default function SimplifiedForm({ onSubmit, isSubmitting }) {
+  const {
+    formData,
+    setFormData,
+    updateField,
+    updateNestedField,
+    addItem,
+    removeItem,
+  } = useEtape();
   const [uploadingFiles, setUploadingFiles] = useState({});
   const [errors, setErrors] = useState({});
   const [businessActivityInput, setBusinessActivityInput] = useState("");
@@ -161,12 +158,13 @@ export default function SimplifiedForm({
   const [focusedField, setFocusedField] = useState(null);
 
   const handleChange = (field, value) => {
-    const newData = { ...formData, [field]: value };
-    setFormData(newData);
-    onChange(newData);
+    updateField(field, value);
+
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: null }));
     }
+
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const generateBusinessActivity = async () => {
@@ -251,33 +249,21 @@ export default function SimplifiedForm({
   }, [formData.headquarters_address]);
 
   const handleNestedChange = (parent, index, field, value) => {
-    const newData = { ...formData };
-    if (!newData[parent]) newData[parent] = [];
-    if (!newData[parent][index]) newData[parent][index] = {};
-    newData[parent][index][field] = value;
-    setFormData(newData);
-    onChange(newData);
+    updateNestedField(parent, index, field, value);
   };
 
-  const addItem = (parent) => {
-    const newData = { ...formData };
-    if (!newData[parent]) newData[parent] = [];
-    newData[parent].push({
+  const addAssociate = () => {
+    addItem("associates", {
       first_name: "",
       email: "",
       phone: "",
       capital_percentage: 0,
       is_manager: false,
     });
-    setFormData(newData);
-    onChange(newData);
   };
 
-  const removeItem = (parent, index) => {
-    const newData = { ...formData };
-    newData[parent] = newData[parent].filter((_, i) => i !== index);
-    setFormData(newData);
-    onChange(newData);
+  const removeAssociate = (index) => {
+    removeItem("associates", index);
   };
 
   const handleFileUpload = async (field, file) => {
@@ -332,6 +318,7 @@ export default function SimplifiedForm({
 
   const handleSubmit = () => {
     if (validate()) {
+      console.log("FormData ready to submit from form:", formData);
       onSubmit(formData);
     } else {
       // Scroll to first error
@@ -350,6 +337,17 @@ export default function SimplifiedForm({
     );
     return type ? type.doc : "Sélectionnez un type de domiciliation";
   };
+
+  if (formData.loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <Loader2
+          className="w-8 h-8 animate-spin text-slate-400"
+          color="#981845"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
@@ -376,33 +374,14 @@ export default function SimplifiedForm({
               <Label className="text-sm font-semibold text-gray-700 mb-2 block">
                 Forme juridique *
               </Label>
-              <Select
-                value={formData.company_type || ""}
-                onValueChange={(v) => handleChange("company_type", v)}
-              >
-                <SelectTrigger
-                  className={cn(
-                    "mt-1 h-11 border-2 transition-all duration-200 bg-white",
-                    errors.company_type
-                      ? "border-red-300 focus:ring-red-100"
-                      : "border-gray-200 hover:border-[#840040]/30 focus:border-[#840040] focus:ring-4 focus:ring-[#840040]/10"
-                  )}
-                >
-                  <SelectValue placeholder="Sélectionnez la forme juridique..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {companyTypes.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.company_type && (
-                <p className="text-sm text-red-500 mt-1">
-                  {errors.company_type}
-                </p>
-              )}
+
+              <SimpleSelect
+                value={formData.company_type}
+                onChange={(v) => handleChange("company_type", v.trim())}
+                options={companyTypes}
+                placeholder="Sélectionnez la forme juridique..."
+                error={errors.company_type}
+              />
             </div>
 
             <div data-error={!!errors.company_name}>
@@ -516,21 +495,13 @@ export default function SimplifiedForm({
                 <Label className="text-sm font-semibold text-gray-700 mb-2 block">
                   Banque
                 </Label>
-                <Select
-                  value={formData.bank || ""}
-                  onValueChange={(v) => handleChange("bank", v)}
-                >
-                  <SelectTrigger className="mt-1 h-11 border-2 border-gray-200 hover:border-[#840040]/30 focus:border-[#840040] focus:ring-4 focus:ring-[#840040]/10 transition-all duration-200 bg-white">
-                    <SelectValue placeholder="Sélectionnez votre banque..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {banks.map((bank) => (
-                      <SelectItem key={bank} value={bank}>
-                        {bank}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+
+                <SimpleSelect
+                  value={formData.bank}
+                  onChange={(v) => handleChange("bank", v)}
+                  options={banks}
+                  placeholder="Sélectionnez votre banque..."
+                />
               </div>
             </div>
           </CardContent>
@@ -859,23 +830,28 @@ export default function SimplifiedForm({
                       )}
                       rows={4}
                     />
-                    <div className="absolute top-6 right-6 flex flex-col gap-1">
+                    <div className="absolute top-6 right-6 gap-10">
                       <div className="flex items-center gap-1 bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full text-xs font-medium">
                         <Check className="w-3 h-3" />
                         Validé
                       </div>
-                      <Button
+                      <button
                         type="button"
                         variant="ghost"
-                        size="sm"
-                        className="text-gray-500 hover:text-[#840040] text-xs h-6"
+                        className="text-gray-500 hover:text-[#840040] text-xs "
+                        style={{
+                          color: "white",
+                          fontSize: "0.75rem",
+                          width: "100%",
+                          marginTop: "10px",
+                        }}
                         onClick={() => {
                           handleChange("business_activity", "");
                           setBusinessActivityInput("");
                         }}
                       >
                         Modifier
-                      </Button>
+                      </button>
                     </div>
                   </div>
                 </motion.div>
@@ -919,7 +895,7 @@ export default function SimplifiedForm({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => addItem("associates")}
+                onClick={() => addAssociate("associates")}
                 style={{ color: "white" }}
                 className="gap-2 border-2 border-[#840040] text-[#840040] hover:bg-[#840040] hover:text-white transition-all duration-200 shadow-sm hover:shadow-md"
               >
@@ -967,7 +943,7 @@ export default function SimplifiedForm({
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                    onClick={() => removeItem("associates", index)}
+                    onClick={() => removeAssociate(index)} // <-- juste index
                   >
                     <Trash2 className="w-4 h-4" color="white" />
                   </Button>
@@ -1367,7 +1343,7 @@ export default function SimplifiedForm({
                   <div className="space-y-3">
                     {advancedClauses.associates.map((clause) => {
                       const isChecked =
-                        formData.custom_clauses?.[clause.id]?.enabled;
+                        !!formData.custom_clauses?.[clause.id]?.enabled;
                       return (
                         <div key={clause.id} className="space-y-2">
                           <div className="flex items-start gap-3">
@@ -1398,7 +1374,7 @@ export default function SimplifiedForm({
                                   <TooltipTrigger asChild>
                                     <AlertCircle className="w-4 h-4 text-gray-400 cursor-help" />
                                   </TooltipTrigger>
-                                  <TooltipContent className="max-w-xs">
+                                  <TooltipContent className="max-w-sm bg-white border-2 border-[#840040]/20 shadow-xl p-4">
                                     <p className="text-sm">{clause.tooltip}</p>
                                   </TooltipContent>
                                 </Tooltip>
@@ -1472,7 +1448,7 @@ export default function SimplifiedForm({
                                   <TooltipTrigger asChild>
                                     <AlertCircle className="w-4 h-4 text-gray-400 cursor-help" />
                                   </TooltipTrigger>
-                                  <TooltipContent className="max-w-xs">
+                                  <TooltipContent className="max-w-sm bg-white border-2 border-[#840040]/20 shadow-xl p-4">
                                     <p className="text-sm">{clause.tooltip}</p>
                                   </TooltipContent>
                                 </Tooltip>
