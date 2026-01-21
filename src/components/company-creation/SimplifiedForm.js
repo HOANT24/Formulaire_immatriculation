@@ -171,9 +171,52 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
     if (!businessActivityInput.trim()) return;
 
     setIsGeneratingActivity(true);
+
     try {
-      // Ici on simule juste une génération statique
-      const result = `Activité simulée pour: "${businessActivityInput}"`;
+      const response = await fetch(
+        "https://openrouter.ai/api/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            Authorization:
+              "Bearer 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",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "openai/gpt-3.5-turbo",
+            messages: [
+              {
+                role: "system",
+                content:
+                  "Tu es un juriste français senior spécialisé en droit des sociétés et en rédaction d'objets sociaux pour les sociétés commerciales françaises (SARL, SAS, SASU, etc.).",
+              },
+              {
+                role: "user",
+                content: ` À partir de la description suivante :
+"${businessActivityInput}"
+
+Rédige un objet social :
+- Juridiquement conforme au droit français
+- Clair, précis et professionnel
+- Rédigé dans le style habituellement utilisé dans les statuts de sociétés françaises
+- Suffisamment large pour permettre le développement futur de l’activité sans modification statutaire
+- Sans être excessivement vague
+
+Contraintes obligatoires :
+- 2 à 3 phrases maximum
+- Inclure explicitement la formule suivante :  
+  « et toutes activités connexes, annexes ou complémentaires»
+
+Fournis uniquement le texte final de l’objet social, prêt à être intégré tel quel dans des statuts de société.`,
+              },
+            ],
+          }),
+        }
+      );
+
+      const data = await response.json();
+      const result = data.choices[0].message.content;
+
       console.log("Business activity generated:", result);
 
       handleChange("business_activity", result);
@@ -212,26 +255,35 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
   };
 
   const selectAddress = (suggestion) => {
-    const addressParts = suggestion.display_name.split(",");
-    handleChange("headquarters_address", addressParts[0]?.trim() || "");
+    const displayName = suggestion.display_name;
+    const userInput = formData.headquarters_address; // garder le texte saisi
 
-    // Try to extract postal code and city
-    const fullAddress = suggestion.display_name;
-    const postalMatch = fullAddress.match(/\b\d{5}\b/);
-    if (postalMatch) {
-      handleChange("headquarters_postal_code", postalMatch[0]);
-    }
+    // 1️⃣ Extraire le code postal
+    const postalMatch = displayName.match(/\b\d{5}\b/);
+    const postalCode = postalMatch ? postalMatch[0] : "";
 
-    // Extract city (usually before postal code or after first comma)
-    if (addressParts.length > 1) {
-      const cityPart = addressParts.find(
-        (part) => !part.match(/\d{5}/) && part.trim().length > 2
-      );
-      if (cityPart) {
-        handleChange("headquarters_city", cityPart.trim());
+    // 2️⃣ Extraire la ville
+    let city = "";
+    const parts = displayName.split(",").map((p) => p.trim());
+
+    // Parcours des parties après l'adresse pour trouver la première qui n'est ni code postal ni région
+    for (let i = 1; i < parts.length; i++) {
+      const part = parts[i];
+      if (!/\d{5}/.test(part) && part.toLowerCase() !== "la réunion") {
+        city = part;
+        break;
       }
     }
 
+    // 3️⃣ Adresse = texte saisi
+    const address = userInput;
+
+    // 4️⃣ Remplir les champs
+    handleChange("headquarters_address", address);
+    handleChange("headquarters_postal_code", postalCode);
+    handleChange("headquarters_city", city);
+
+    // 5️⃣ Vider les suggestions
     setAddressSuggestions([]);
   };
 
