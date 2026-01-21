@@ -179,7 +179,7 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
           method: "POST",
           headers: {
             Authorization:
-              "Bearer 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",
+              "Bearer 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",
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
@@ -188,26 +188,29 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
               {
                 role: "system",
                 content:
-                  "Tu es un juriste français senior spécialisé en droit des sociétés et en rédaction d'objets sociaux pour les sociétés commerciales françaises (SARL, SAS, SASU, etc.).",
+                  "Tu es un juriste français senior spécialisé en droit des sociétés et en rédaction d'objets sociaux pour les sociétés commerciales françaises (SARL, SAS, SASU, etc.). Tu maîtrises les formulations statutaires professionnelles utilisées par les cabinets d’avocats et experts-comptables.",
               },
               {
                 role: "user",
-                content: ` À partir de la description suivante :
-"${businessActivityInput}"
-
-Rédige un objet social :
-- Juridiquement conforme au droit français
-- Clair, précis et professionnel
-- Rédigé dans le style habituellement utilisé dans les statuts de sociétés françaises
-- Suffisamment large pour permettre le développement futur de l’activité sans modification statutaire
-- Sans être excessivement vague
-
-Contraintes obligatoires :
-- 2 à 3 phrases maximum
-- Inclure explicitement la formule suivante :  
-  « et toutes activités connexes, annexes ou complémentaires»
-
-Fournis uniquement le texte final de l’objet social, prêt à être intégré tel quel dans des statuts de société.`,
+                content: `À partir de la description suivante :
+            "${businessActivityInput}"
+            
+            Rédige un objet social :
+            
+            - Juridiquement conforme au droit français
+            - Rédigé dans un style professionnel et statutaire, tel qu’utilisé dans les statuts de sociétés françaises
+            - Plus détaillé qu’une simple reformulation de l’activité, en précisant notamment :
+              • la nature des opérations (achat, vente, négoce, distribution, etc.)
+              • les canaux possibles (en gros, détail, en ligne, import/export, etc.), lorsque pertinent
+            - Suffisamment large pour permettre le développement futur de l’activité sans modification statutaire
+            - Sans être excessivement vague ni générique
+            
+            Contraintes obligatoires :
+            - 2 à 3 phrases maximum
+            - Inclure explicitement la formule suivante :
+              « et toutes activités connexes, annexes ou complémentaires »
+            
+            Fournis uniquement le texte final de l’objet social, prêt à être intégré tel quel dans des statuts de société.`,
               },
             ],
           }),
