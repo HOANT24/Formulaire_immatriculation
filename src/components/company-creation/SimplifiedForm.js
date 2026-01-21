@@ -174,55 +174,25 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
 
     try {
       const response = await fetch(
-        "https://openrouter.ai/api/v1/chat/completions",
+        "https://backend-myalfa.vercel.app/api/business-activity",
         {
           method: "POST",
           headers: {
-            Authorization:
-              "Bearer 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",
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "openai/gpt-3.5-turbo",
-            messages: [
-              {
-                role: "system",
-                content:
-                  "Tu es un juriste français senior spécialisé en droit des sociétés et en rédaction d'objets sociaux pour les sociétés commerciales françaises (SARL, SAS, SASU, etc.). Tu maîtrises les formulations statutaires professionnelles utilisées par les cabinets d’avocats et experts-comptables.",
-              },
-              {
-                role: "user",
-                content: `À partir de la description suivante :
-            "${businessActivityInput}"
-            
-            Rédige un objet social :
-            
-            - Juridiquement conforme au droit français
-            - Rédigé dans un style professionnel et statutaire, tel qu’utilisé dans les statuts de sociétés françaises
-            - Plus détaillé qu’une simple reformulation de l’activité, en précisant notamment :
-              • la nature des opérations (achat, vente, négoce, distribution, etc.)
-              • les canaux possibles (en gros, détail, en ligne, import/export, etc.), lorsque pertinent
-            - Suffisamment large pour permettre le développement futur de l’activité sans modification statutaire
-            - Sans être excessivement vague ni générique
-            
-            Contraintes obligatoires :
-            - 2 à 3 phrases maximum
-            - Inclure explicitement la formule suivante :
-              « et toutes activités connexes, annexes ou complémentaires »
-            
-            Fournis uniquement le texte final de l’objet social, prêt à être intégré tel quel dans des statuts de société.`,
-              },
-            ],
+            businessActivityInput,
           }),
         }
       );
 
       const data = await response.json();
-      const result = data.choices[0].message.content;
 
-      console.log("Business activity generated:", result);
+      if (!response.ok) {
+        throw new Error(data.error || "Erreur API");
+      }
 
-      handleChange("business_activity", result);
+      handleChange("business_activity", data.result);
       setBusinessActivityInput("");
     } catch (error) {
       console.error("Error generating activity:", error);
