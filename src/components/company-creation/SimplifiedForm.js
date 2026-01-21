@@ -179,7 +179,7 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
           method: "POST",
           headers: {
             Authorization:
-              "Bearer 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",
+              "Bearer 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",
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
