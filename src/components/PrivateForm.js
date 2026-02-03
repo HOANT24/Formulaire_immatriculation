@@ -32,11 +32,6 @@ export default function CompanyCreationSimple() {
       // Simulation d’envoi
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      setFormData({
-        ...finalData,
-        status: "submitted",
-      });
-
       setIsSubmitted(true);
     } catch (error) {
       console.error("Error submitting:", error);

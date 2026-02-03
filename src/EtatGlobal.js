@@ -5,7 +5,6 @@ import { useParams } from "react-router-dom";
 const EtapeContext = createContext();
 
 const initialFormData = {
-  status: "draft",
   loading: true, // 🔹 pour attendre la réponse de l'API
   formeSociale: "",
   nomSociete: "",
@@ -95,9 +94,6 @@ export function EtapeProvider({ children }) {
   // 🔹 Récupération de l'id depuis la route
   const { id } = useParams();
 
-  /* ======================
-     API Fetch
-  ====================== */
   useEffect(() => {
     if (!id) {
       setFormData((prev) => ({ ...prev, loading: false }));
