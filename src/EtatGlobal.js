@@ -5,23 +5,46 @@ import { useParams } from "react-router-dom";
 const EtapeContext = createContext();
 
 const initialFormData = {
+  status: "draft",
   loading: true, // 🔹 pour attendre la réponse de l'API
-  company_type: "",
-  company_name: "",
-  commercial_name: "",
-  share_capital: null,
-  bank: "",
+  formeSociale: "",
+  nomSociete: "",
+  siegeSocial: "",
+  typeSocial: "",
+  capital: "",
+  banque: "",
+  clauseAgreement: false,
+  clauseExclusion: false,
+  clauseInalienabilite: false,
+  clausePreemption: false,
+  clauseSortie: false,
+  autresClauses: false,
+  commentaire: "",
+  existenceAction: false,
+  quorum: false,
+  limitation: false,
+  autresClauses2: false,
+  commentaire2: "",
+  secteurActivite: "",
+  secteurActiviteCommentaire: "",
+  activite: "",
+  //
+  regimeFiscal: "",
+  regimeTVA: "",
+  dateCloture: "",
+  acteAnterieur: false,
+  commentaire3: "",
+  dueDate: "",
+  priority: "classique",
+  coefficient: "",
+  //
+  emailLead: "",
+  nomCommercial: "",
+  adresse_complement: "",
+  codePostal: "",
+  ville: "",
 
-  headquarters_type: "",
-  headquarters_address: "",
-  headquarters_complement: "",
-  headquarters_postal_code: "",
-  headquarters_city: "",
-  headquarters_proof_document: null,
-
-  business_activity: "",
-
-  associates: [],
+  associes: [],
 
   client_notes: "",
 
@@ -72,17 +95,6 @@ export function EtapeProvider({ children }) {
   // 🔹 Récupération de l'id depuis la route
   const { id } = useParams();
 
-  const parseFrenchNumber = (value) => {
-    if (!value) return null;
-
-    return Number(
-      value
-        .replace(/\s/g, "") // enlève les espaces
-        .replace("€", "") // enlève €
-        .replace(",", ".") // virgule → point
-    );
-  };
-
   /* ======================
      API Fetch
   ====================== */
@@ -103,19 +115,25 @@ export function EtapeProvider({ children }) {
         const mappedData = {
           ...formData,
           loading: false,
-          company_type: data.formeSociale === "N/A" ? "" : data.formeSociale,
-          company_name: data.nomSociete || "",
-          share_capital: parseFrenchNumber(data.capital),
-          bank: data.banque || "",
-          headquarters_type: data.typeSocial || "",
-          headquarters_address: data.siegeSocial || "",
-          associates:
+          formeSociale: data.formeSociale === "N/A" ? "" : data.formeSociale,
+          nomSociete: data.nomSociete || "",
+          siegeSocial: data.siegeSocial || "",
+          typeSocial: data.typeSocial || "",
+          capital: data.capital || "",
+          banque: data.banque || "",
+          nomCommercial: data.nomCommercial || "",
+          adresse_complement: data.adresse_complement || "",
+          codePostal: data.codePostal || "",
+          ville: data.ville || "",
+          regimeFiscal: data.regimeFiscal || "",
+          regimeTVA: data.regimeTVA || "",
+          associes:
             data.associes?.map((associe) => ({
-              first_name: associe.nomAssocie || "",
-              email: "",
-              phone: "",
-              capital_percentage: associe.pourcentage || 0,
-              is_manager: associe.dirigeant || false,
+              nomAssocie: associe.nomAssocie || "",
+              emailAssocie: associe.emailAssocie || "",
+              telephoneAssocie: associe.telephoneAssocie || "",
+              pourcentage: associe.pourcentage || 0,
+              dirigeant: associe.dirigeant || false,
             })) || [],
           custom_clauses: mapCustomClausesFromApi(data),
         };
@@ -149,7 +167,7 @@ export function EtapeProvider({ children }) {
     }));
   };
 
-  // Champ imbriqué (associates)
+  // Champ imbriqué (associes)
   const updateNestedField = (arrayName, index, field, value) => {
     setFormData((prev) => {
       const updatedArray = [...prev[arrayName]];
@@ -171,12 +189,12 @@ export function EtapeProvider({ children }) {
 
   // Ajouter un associé facilement
   const addAssociate = () => {
-    addItem("associates", {
-      first_name: "",
-      email: "",
-      phone: "",
-      capital_percentage: 0,
-      is_manager: false,
+    addItem("associes", {
+      nomAssocie: "",
+      emailAssocie: "",
+      telephoneAssocie: "",
+      pourcentage: 0,
+      dirigeant: false,
     });
   };
 

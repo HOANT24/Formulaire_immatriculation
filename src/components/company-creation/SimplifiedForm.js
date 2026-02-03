@@ -41,24 +41,41 @@ import {
 import { Checkbox } from "../ui/checkbox";
 import { cn } from "../lib/utils";
 import { useEtape } from "../../EtatGlobal.js";
+import { useParams } from "react-router-dom";
 
-const companyTypes = ["SASU", "SAS", "EURL", "SARL", "SCI", "SNC", "SA"];
+const companyTypes = [
+  "E.I",
+  "E.I.R.L",
+  "EARL",
+  "EURL",
+  "SARL",
+  "SASU",
+  "SAS",
+  "SCI",
+  "SCCV",
+  "LMNP",
+  "GFA",
+  "SC",
+  "SCP",
+  "SEL",
+  "N/A",
+];
 
 const headquartersTypes = [
   { id: "Propriétaire", label: "Propriété", doc: "Taxe foncière" },
   {
-    id: "rented",
+    id: "Locataire",
     label: "Location",
     doc: "Facture EDF, eau ou Internet fixe de moins de 3 mois",
   },
   {
-    id: "domiciliation",
+    id: "Domiciliation",
     label: "Domiciliation",
     doc: "Aucun justificatif nécessaire",
   },
 ];
 
-const banks = [
+const banques = [
   "Crédit Agricole",
   "BNP Paribas",
   "Société Générale",
@@ -71,7 +88,7 @@ const banks = [
   "HSBC",
   "Boursorama",
   "Fortuneo",
-  "Hello bank!",
+  "Hello banque!",
   "N26",
   "Revolut",
   "Qonto",
@@ -139,7 +156,23 @@ const advancedClauses = {
   ],
 };
 
-export default function SimplifiedForm({ onSubmit, isSubmitting }) {
+const regimeFiscal = [
+  "IS RS",
+  "IS RN",
+  "IR BIC Micro",
+  "IR BIC RS",
+  "IR BIC RN",
+  "IR BNC micro",
+  "IR BNC réel",
+  "IR RF",
+  "IR LMNP",
+];
+
+const regimeTVAs = ["N/A", "Franchise", "RSI", "RN", "Mini réel"];
+
+export default function SimplifiedForm({ onSubmit }) {
+  const { id } = useParams();
+  console.log("ID from params:", id);
   const {
     formData,
     setFormData,
@@ -156,15 +189,53 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
   const [isLoadingAddress, setIsLoadingAddress] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
+  const [loadingSubmit, setLoadingSubmit] = useState(false);
 
-  const handleChange = (field, value) => {
-    updateField(field, value);
+  const handleChange = (field, value, type = "text") => {
+    let finalValue = value;
 
+    // ✅ Checkbox → true/false
+    if (type === "checkbox") {
+      finalValue = !!value;
+    }
+
+    // ✅ Nombre → parseFloat
+    if (type === "number") {
+      finalValue = value === "" ? "" : parseFloat(value);
+    }
+
+    // ✅ Si le champ est custom_clauses, on met à jour les booléens associés
+    let extraFields = {};
+    if (field === "custom_clauses") {
+      const clauses = finalValue || {};
+      extraFields = {
+        clauseAgreement: !!clauses.agrement?.enabled,
+        clauseExclusion: !!clauses.exclusion?.enabled,
+        clauseInalienabilite: !!clauses.inalienabilite?.enabled,
+        clausePreemption: !!clauses.preemption?.enabled,
+        clauseSortie: !!clauses.sortie?.enabled,
+        autresClauses: !!clauses.autres_associes?.enabled,
+        existenceAction: !!clauses.actions_preference?.enabled,
+        quorum: !!clauses.quorum?.enabled,
+        limitation: !!clauses.limitation_pouvoirs?.enabled,
+        autresClauses2: !!clauses.autres_gouvernance?.enabled,
+      };
+    }
+
+    // 🔹 Update générique pour tous les champs
+    updateField(field, finalValue);
+
+    // 🔹 Reset error si existant
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: null }));
     }
 
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    // 🔹 Mise à jour formData (avec extraFields si custom_clauses)
+    setFormData((prev) => ({
+      ...prev,
+      [field]: finalValue,
+      ...extraFields,
+    }));
   };
 
   const generateBusinessActivity = async () => {
@@ -192,13 +263,13 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
         throw new Error(data.error || "Erreur API");
       }
 
-      handleChange("business_activity", data.result);
+      handleChange("activite", data.result);
       setBusinessActivityInput("");
     } catch (error) {
       console.error("Error generating activity:", error);
       setErrors((prev) => ({
         ...prev,
-        business_activity: "Erreur lors de la génération",
+        activite: "Erreur lors de la génération",
       }));
     } finally {
       setIsGeneratingActivity(false);
@@ -229,7 +300,7 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
 
   const selectAddress = (suggestion) => {
     const displayName = suggestion.display_name;
-    const userInput = formData.headquarters_address; // garder le texte saisi
+    const userInput = formData.siegeSocial; // garder le texte saisi
 
     // 1️⃣ Extraire le code postal
     const postalMatch = displayName.match(/\b\d{5}\b/);
@@ -252,9 +323,9 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
     const address = userInput;
 
     // 4️⃣ Remplir les champs
-    handleChange("headquarters_address", address);
-    handleChange("headquarters_postal_code", postalCode);
-    handleChange("headquarters_city", city);
+    handleChange("siegeSocial", address);
+    handleChange("codePostal", postalCode);
+    handleChange("ville", city);
 
     // 5️⃣ Vider les suggestions
     setAddressSuggestions([]);
@@ -262,33 +333,30 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
 
   useEffect(() => {
     const delaySearch = setTimeout(() => {
-      if (
-        formData.headquarters_address &&
-        formData.headquarters_address.length >= 3
-      ) {
-        searchAddress(formData.headquarters_address);
+      if (formData.siegeSocial && formData.siegeSocial.length >= 3) {
+        searchAddress(formData.siegeSocial);
       }
     }, 500);
 
     return () => clearTimeout(delaySearch);
-  }, [formData.headquarters_address]);
+  }, [formData.siegeSocial]);
 
   const handleNestedChange = (parent, index, field, value) => {
     updateNestedField(parent, index, field, value);
   };
 
   const addAssociate = () => {
-    addItem("associates", {
-      first_name: "",
-      email: "",
-      phone: "",
-      capital_percentage: 0,
-      is_manager: false,
+    addItem("associes", {
+      nomAssocie: "",
+      emailAssocie: "",
+      telephoneAssocie: "",
+      pourcentage: 0,
+      dirigeant: false,
     });
   };
 
   const removeAssociate = (index) => {
-    removeItem("associates", index);
+    removeItem("associes", index);
   };
 
   const handleFileUpload = async (field, file) => {
@@ -311,29 +379,15 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
   const validate = () => {
     const newErrors = {};
 
-    if (!formData.company_type) newErrors.company_type = "Requis";
-    if (!formData.company_name?.trim()) newErrors.company_name = "Requis";
-    if (!formData.business_activity?.trim())
-      newErrors.business_activity = "Requis";
-    if (!formData.share_capital || formData.share_capital < 1)
-      newErrors.share_capital = "Requis";
-    if (!formData.headquarters_address?.trim())
-      newErrors.headquarters_address = "Requis";
-    if (!formData.headquarters_city?.trim())
-      newErrors.headquarters_city = "Requis";
-    if (!formData.headquarters_type)
-      newErrors.headquarters_type = "Type de domiciliation requis";
+    if (!formData.formeSociale) newErrors.formeSociale = "Requis";
+    if (!formData.nomSociete?.trim()) newErrors.nomSociete = "Requis";
 
-    if (!formData.associates?.length) {
-      newErrors.associates = "Au moins un associé requis";
+    if (!formData.associes?.length) {
+      newErrors.associes = "Au moins un associé requis";
     } else {
-      formData.associates.forEach((a, i) => {
-        if (!a.first_name?.trim())
-          newErrors[`associate_${i}_first_name`] = "Requis";
-        if (!a.email?.trim()) newErrors[`associate_${i}_email`] = "Requis";
-        if (!a.phone?.trim()) newErrors[`associate_${i}_phone`] = "Requis";
-        if (!a.capital_percentage || a.capital_percentage <= 0)
-          newErrors[`associate_${i}_capital`] = "Requis";
+      formData.associes.forEach((a, i) => {
+        if (!a.nomAssocie?.trim())
+          newErrors[`associate_${i}_nomAssocie`] = "Requis";
       });
     }
 
@@ -341,25 +395,62 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
-    if (validate()) {
-      console.log("FormData ready to submit from form:", formData);
-      onSubmit(formData);
-    } else {
-      // Scroll to first error
+  const handleSubmit = async () => {
+    if (loadingSubmit) return; // anti double submit
+    if (!validate()) {
       const firstError = document.querySelector('[data-error="true"]');
       if (firstError) {
         firstError.scrollIntoView({ behavior: "smooth", block: "center" });
       }
+      return;
+    }
+
+    try {
+      setLoadingSubmit(true);
+      console.log("Submitting formData:", formData);
+
+      const response = await fetch(
+        `https://backend-myalfa.vercel.app/api/creation-sct/${id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            ...formData,
+            custom_clauses: JSON.stringify(formData.custom_clauses || {}),
+            associes: JSON.stringify(formData.associes || []),
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Erreur lors de la mise à jour");
+      }
+
+      console.log("API success:", data);
+
+      // optionnel : callback parent
+      if (onSubmit) {
+        onSubmit(data);
+      }
+    } catch (error) {
+      console.error("Submit error:", error);
+      setErrors((prev) => ({
+        ...prev,
+        submit: error.message || "Erreur serveur",
+      }));
+    } finally {
+      setLoadingSubmit(false);
     }
   };
 
-  const associates = formData.associates || [];
+  const associes = formData.associes || [];
 
   const getDocumentTooltip = () => {
-    const type = headquartersTypes.find(
-      (t) => t.id === formData.headquarters_type
-    );
+    const type = headquartersTypes.find((t) => t.id === formData.typeSocial);
     return type ? type.doc : "Sélectionnez un type de domiciliation";
   };
 
@@ -373,6 +464,8 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
       </div>
     );
   }
+
+  console.log("Submitting formData:", formData);
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
@@ -395,46 +488,46 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-5 pt-6 relative z-10">
-            <div data-error={!!errors.company_type}>
+            <div data-error={!!errors.formeSociale}>
               <Label className="text-sm font-semibold text-gray-700 mb-2 block">
                 Forme juridique *
               </Label>
 
               <SimpleSelect
-                value={formData.company_type}
-                onChange={(v) => handleChange("company_type", v.trim())}
+                value={formData.formeSociale}
+                onChange={(v) => handleChange("formeSociale", v.trim())}
                 options={companyTypes}
                 placeholder="Sélectionnez la forme juridique..."
-                error={errors.company_type}
+                error={errors.formeSociale}
               />
             </div>
 
-            <div data-error={!!errors.company_name}>
+            <div data-error={!!errors.nomSociete}>
               <Label className="text-sm font-semibold text-gray-700 mb-2 block">
                 Dénomination sociale *
               </Label>
               <Input
-                value={formData.company_name || ""}
-                onChange={(e) => handleChange("company_name", e.target.value)}
-                onFocus={() => setFocusedField("company_name")}
+                value={formData.nomSociete || ""}
+                onChange={(e) => handleChange("nomSociete", e.target.value)}
+                onFocus={() => setFocusedField("nomSociete")}
                 onBlur={() => setFocusedField(null)}
                 placeholder="Entrez le nom officiel de votre société"
                 className={cn(
                   "mt-1 h-11 border-2 transition-all duration-200 bg-white",
-                  errors.company_name
+                  errors.nomSociete
                     ? "border-red-300 focus:ring-red-100"
                     : "border-gray-200 hover:border-[#840040]/30 focus:border-[#840040] focus:ring-4 focus:ring-[#840040]/10",
-                  focusedField === "company_name" && "shadow-lg"
+                  focusedField === "nomSociete" && "shadow-lg"
                 )}
               />
-              {errors.company_name && (
+              {errors.nomSociete && (
                 <motion.p
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="text-sm text-red-600 mt-2 flex items-center gap-1"
                 >
                   <AlertCircle className="w-3 h-3" />
-                  {errors.company_name}
+                  {errors.nomSociete}
                 </motion.p>
               )}
             </div>
@@ -470,17 +563,15 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
                 </TooltipProvider>
               </div>
               <Input
-                value={formData.commercial_name || ""}
-                onChange={(e) =>
-                  handleChange("commercial_name", e.target.value)
-                }
+                value={formData.nomCommercial || ""}
+                onChange={(e) => handleChange("nomCommercial", e.target.value)}
                 placeholder="Le nom que vos clients connaîtront (optionnel)"
                 className="mt-1 h-11 border-2 border-gray-200 hover:border-[#840040]/30 focus:border-[#840040] focus:ring-4 focus:ring-[#840040]/10 transition-all duration-200 bg-white"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div data-error={!!errors.share_capital}>
+              <div data-error={!!errors.capital}>
                 <Label className="text-sm font-semibold text-gray-700 mb-2 block">
                   Capital social (€) *
                 </Label>
@@ -488,14 +579,14 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
                   <Input
                     type="number"
                     min={1}
-                    value={formData.share_capital || ""}
+                    value={formData.capital || ""}
                     onChange={(e) =>
-                      handleChange("share_capital", parseFloat(e.target.value))
+                      handleChange("capital", parseFloat(e.target.value))
                     }
                     placeholder="1000"
                     className={cn(
                       "mt-1 h-11 border-2 transition-all duration-200 bg-white pr-8",
-                      errors.share_capital
+                      errors.capital
                         ? "border-red-300 focus:ring-red-100"
                         : "border-gray-200 hover:border-[#840040]/30 focus:border-[#840040] focus:ring-4 focus:ring-[#840040]/10"
                     )}
@@ -504,14 +595,14 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
                     €
                   </span>
                 </div>
-                {errors.share_capital && (
+                {errors.capital && (
                   <motion.p
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="text-sm text-red-600 mt-2 flex items-center gap-1"
                   >
                     <AlertCircle className="w-3 h-3" />
-                    {errors.share_capital}
+                    {errors.capital}
                   </motion.p>
                 )}
               </div>
@@ -522,10 +613,38 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
                 </Label>
 
                 <SimpleSelect
-                  value={formData.bank}
-                  onChange={(v) => handleChange("bank", v)}
-                  options={banks}
+                  value={formData.banque}
+                  onChange={(v) => handleChange("banque", v)}
+                  options={banques}
                   placeholder="Sélectionnez votre banque..."
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div data-error={!!errors.capital}>
+                <Label className="text-sm font-semibold text-gray-700 mb-2 block">
+                  Régime fiscal
+                </Label>
+                <SimpleSelect
+                  value={formData.regimeFiscal}
+                  onChange={(v) => handleChange("regimeFiscal", v.trim())}
+                  options={regimeFiscal}
+                  placeholder="Sélectionnez le Régime fiscal..."
+                  error={errors.regimeFiscal}
+                />
+              </div>
+
+              <div>
+                <Label className="text-sm font-semibold text-gray-700 mb-2 block">
+                  TVA
+                </Label>
+
+                <SimpleSelect
+                  value={formData.regimeTVA}
+                  onChange={(v) => handleChange("regimeTVA", v)}
+                  options={regimeTVAs}
+                  placeholder="Sélectionnez votre TVA..."
                 />
               </div>
             </div>
@@ -544,13 +663,13 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-5 pt-6 relative z-10">
-            <div data-error={!!errors.headquarters_type}>
+            <div data-error={!!errors.typeSocial}>
               <Label className="text-sm font-semibold text-gray-700 mb-3 block">
                 Type de domiciliation *
               </Label>
               <RadioGroup
-                value={formData.headquarters_type || ""}
-                onValueChange={(v) => handleChange("headquarters_type", v)}
+                value={formData.typeSocial || ""}
+                onValueChange={(v) => handleChange("typeSocial", v)}
                 className="grid grid-cols-3 gap-3 mt-2"
               >
                 {headquartersTypes.map((type) => (
@@ -559,12 +678,12 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
                     htmlFor={type.id}
                     className={cn(
                       "flex items-center justify-center gap-2 p-3 rounded-xl border-2 cursor-pointer transition-all duration-200 relative overflow-hidden group",
-                      formData.headquarters_type === type.id
+                      formData.typeSocial === type.id
                         ? "border-[#840040] bg-gradient-to-br from-[#840040]/10 to-[#840040]/5 shadow-md"
                         : "border-gray-200 hover:border-[#840040]/40 hover:shadow-sm bg-white"
                     )}
                   >
-                    {formData.headquarters_type === type.id && (
+                    {formData.typeSocial === type.id && (
                       <motion.div
                         layoutId="selectedType"
                         className="absolute inset-0 bg-gradient-to-br from-[#840040]/5 to-transparent"
@@ -579,7 +698,7 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
                     <span
                       className={cn(
                         "text-xs font-semibold relative z-10 transition-colors",
-                        formData.headquarters_type === type.id
+                        formData.typeSocial === type.id
                           ? "text-[#840040]"
                           : "text-gray-700"
                       )}
@@ -589,27 +708,23 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
                   </Label>
                 ))}
               </RadioGroup>
-              {errors.headquarters_type && (
-                <p className="text-sm text-red-500 mt-1">
-                  {errors.headquarters_type}
-                </p>
+              {errors.typeSocial && (
+                <p className="text-sm text-red-500 mt-1">{errors.typeSocial}</p>
               )}
             </div>
 
-            <div data-error={!!errors.headquarters_address}>
+            <div data-error={!!errors.siegeSocial}>
               <Label className="text-sm font-semibold text-gray-700 mb-2 block">
                 Adresse *
               </Label>
               <div className="relative mt-1">
                 <Input
-                  value={formData.headquarters_address || ""}
-                  onChange={(e) =>
-                    handleChange("headquarters_address", e.target.value)
-                  }
+                  value={formData.siegeSocial || ""}
+                  onChange={(e) => handleChange("siegeSocial", e.target.value)}
                   placeholder="Commencez à saisir votre adresse..."
                   className={cn(
                     "h-11 border-2 transition-all duration-200 bg-white pr-10",
-                    errors.headquarters_address
+                    errors.siegeSocial
                       ? "border-red-300 focus:ring-red-100"
                       : "border-gray-200 hover:border-[#840040]/30 focus:border-[#840040] focus:ring-4 focus:ring-[#840040]/10"
                   )}
@@ -637,9 +752,9 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
                   </motion.div>
                 )}
               </div>
-              {errors.headquarters_address && (
+              {errors.siegeSocial && (
                 <p className="text-sm text-red-500 mt-1">
-                  {errors.headquarters_address}
+                  {errors.siegeSocial}
                 </p>
               )}
             </div>
@@ -649,9 +764,9 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
                 Complément d'adresse
               </Label>
               <Input
-                value={formData.headquarters_complement || ""}
+                value={formData.adresse_complement || ""}
                 onChange={(e) =>
-                  handleChange("headquarters_complement", e.target.value)
+                  handleChange("adresse_complement", e.target.value)
                 }
                 placeholder="Bâtiment, Étage, Appartement... (optionnel)"
                 className="mt-1 h-11 border-2 border-gray-200 hover:border-[#840040]/30 focus:border-[#840040] focus:ring-4 focus:ring-[#840040]/10 transition-all duration-200 bg-white"
@@ -664,115 +779,110 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
                   Code postal
                 </Label>
                 <Input
-                  value={formData.headquarters_postal_code || ""}
-                  onChange={(e) =>
-                    handleChange("headquarters_postal_code", e.target.value)
-                  }
+                  value={formData.codePostal || ""}
+                  onChange={(e) => handleChange("codePostal", e.target.value)}
                   placeholder="75001"
                   className="mt-1 h-11 border-2 border-gray-200 hover:border-[#840040]/30 focus:border-[#840040] focus:ring-4 focus:ring-[#840040]/10 transition-all duration-200 bg-white"
                 />
               </div>
 
-              <div data-error={!!errors.headquarters_city}>
+              <div data-error={!!errors.ville}>
                 <Label className="text-sm font-semibold text-gray-700 mb-2 block">
                   Ville *
                 </Label>
                 <Input
-                  value={formData.headquarters_city || ""}
-                  onChange={(e) =>
-                    handleChange("headquarters_city", e.target.value)
-                  }
+                  value={formData.ville || ""}
+                  onChange={(e) => handleChange("ville", e.target.value)}
                   placeholder="Paris"
                   className={cn(
                     "mt-1 h-11 border-2 transition-all duration-200 bg-white",
-                    errors.headquarters_city
+                    errors.ville
                       ? "border-red-300 focus:ring-red-100"
                       : "border-gray-200 hover:border-[#840040]/30 focus:border-[#840040] focus:ring-4 focus:ring-[#840040]/10"
                   )}
                 />
-                {errors.headquarters_city && (
+                {errors.ville && (
                   <motion.p
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="text-sm text-red-600 mt-2 flex items-center gap-1"
                   >
                     <AlertCircle className="w-3 h-3" />
-                    {errors.headquarters_city}
+                    {errors.ville}
                   </motion.p>
                 )}
               </div>
             </div>
 
             {/* Justificatif adresse siège */}
-            {formData.headquarters_type &&
-              formData.headquarters_type !== "domiciliation" && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <Label className="text-sm font-semibold text-gray-700">
-                      Justificatif d'adresse du siège *
-                    </Label>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="flex items-center justify-center w-5 h-5 rounded-full bg-[#840040]/10 hover:bg-[#840040]/20 transition-colors cursor-help">
-                            <Info className="w-3 h-3 text-[#840040]" />
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-sm bg-white border-2 border-[#840040]/20 shadow-xl p-4">
-                          <p className="text-sm font-semibold text-[#840040] mb-1">
-                            Document requis :
-                          </p>
-                          <p className="text-sm">{getDocumentTooltip()}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                  <label className="flex items-center justify-center gap-2 px-4 py-4 rounded-xl border-2 border-dashed border-gray-300 hover:border-[#840040] hover:bg-[#840040]/5 cursor-pointer transition-all duration-200 group bg-white">
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      onChange={(e) =>
-                        handleFileUpload(
-                          "headquarters_proof_document",
-                          e.target.files?.[0]
-                        )
-                      }
-                      disabled={uploadingFiles.headquarters_proof_document}
-                    />
-                    {uploadingFiles.headquarters_proof_document ? (
-                      <>
-                        <Loader2 className="w-5 h-5 animate-spin text-[#840040]" />
-                        <span className="text-sm font-medium text-gray-700">
-                          Téléversement en cours...
-                        </span>
-                      </>
-                    ) : formData.headquarters_proof_document ? (
-                      <>
-                        <div className="p-2 bg-emerald-50 rounded-lg">
-                          <Check className="w-5 h-5 text-emerald-600" />
+            {formData.typeSocial && formData.typeSocial !== "domiciliation" && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Label className="text-sm font-semibold text-gray-700">
+                    Justificatif d'adresse du siège *
+                  </Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center justify-center w-5 h-5 rounded-full bg-[#840040]/10 hover:bg-[#840040]/20 transition-colors cursor-help">
+                          <Info className="w-3 h-3 text-[#840040]" />
                         </div>
-                        <span className="text-sm font-semibold text-emerald-700">
-                          Document téléversé avec succès
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <div className="p-2 bg-gray-50 rounded-lg group-hover:bg-[#840040]/10 transition-colors">
-                          <Upload className="w-5 h-5 text-gray-400 group-hover:text-[#840040] transition-colors" />
-                        </div>
-                        <span className="text-sm font-medium text-gray-600 group-hover:text-[#840040] transition-colors">
-                          Cliquez pour téléverser le justificatif
-                        </span>
-                      </>
-                    )}
-                  </label>
-                </motion.div>
-              )}
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-sm bg-white border-2 border-[#840040]/20 shadow-xl p-4">
+                        <p className="text-sm font-semibold text-[#840040] mb-1">
+                          Document requis :
+                        </p>
+                        <p className="text-sm">{getDocumentTooltip()}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <label className="flex items-center justify-center gap-2 px-4 py-4 rounded-xl border-2 border-dashed border-gray-300 hover:border-[#840040] hover:bg-[#840040]/5 cursor-pointer transition-all duration-200 group bg-white">
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(e) =>
+                      handleFileUpload(
+                        "headquarters_proof_document",
+                        e.target.files?.[0]
+                      )
+                    }
+                    disabled={uploadingFiles.headquarters_proof_document}
+                  />
+                  {uploadingFiles.headquarters_proof_document ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin text-[#840040]" />
+                      <span className="text-sm font-medium text-gray-700">
+                        Téléversement en cours...
+                      </span>
+                    </>
+                  ) : formData.headquarters_proof_document ? (
+                    <>
+                      <div className="p-2 bg-emerald-50 rounded-lg">
+                        <Check className="w-5 h-5 text-emerald-600" />
+                      </div>
+                      <span className="text-sm font-semibold text-emerald-700">
+                        Document téléversé avec succès
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <div className="p-2 bg-gray-50 rounded-lg group-hover:bg-[#840040]/10 transition-colors">
+                        <Upload className="w-5 h-5 text-gray-400 group-hover:text-[#840040] transition-colors" />
+                      </div>
+                      <span className="text-sm font-medium text-gray-600 group-hover:text-[#840040] transition-colors">
+                        Cliquez pour téléverser le justificatif
+                      </span>
+                    </>
+                  )}
+                </label>
+              </motion.div>
+            )}
           </CardContent>
         </Card>
       </motion.div>
@@ -794,8 +904,8 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-6 relative z-10">
-            <div data-error={!!errors.business_activity}>
-              {!formData.business_activity ? (
+            <div data-error={!!errors.activite}>
+              {!formData.activite ? (
                 <div className="space-y-3 ">
                   <div className="flex items-center gap-3">
                     <Input
@@ -845,13 +955,11 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
                 >
                   <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-200 rounded-xl p-4">
                     <Textarea
-                      value={formData.business_activity}
-                      onChange={(e) =>
-                        handleChange("business_activity", e.target.value)
-                      }
+                      value={formData.activite}
+                      onChange={(e) => handleChange("activite", e.target.value)}
                       className={cn(
                         "pr-20 border-emerald-300 bg-white/80 focus:bg-white transition-all",
-                        errors.business_activity && "border-red-300"
+                        errors.activite && "border-red-300"
                       )}
                       rows={4}
                     />
@@ -871,7 +979,7 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
                           marginTop: "10px",
                         }}
                         onClick={() => {
-                          handleChange("business_activity", "");
+                          handleChange("activite", "");
                           setBusinessActivityInput("");
                         }}
                       >
@@ -881,14 +989,14 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
                   </div>
                 </motion.div>
               )}
-              {errors.business_activity && (
+              {errors.activite && (
                 <motion.p
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="text-sm text-red-600 mt-2 flex items-center gap-1"
                 >
                   <AlertCircle className="w-3 h-3" />
-                  {errors.business_activity}
+                  {errors.activite}
                 </motion.p>
               )}
             </div>
@@ -913,14 +1021,14 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
                 <div>
                   <span className="text-lg">Associés</span>
                   <span className="ml-2 text-sm font-normal text-gray-500">
-                    ({associates.length})
+                    ({associes.length})
                   </span>
                 </div>
               </div>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => addAssociate("associates")}
+                onClick={() => addAssociate("associes")}
                 style={{ color: "white" }}
                 className="gap-2 border-2 border-[#840040] text-[#840040] hover:bg-[#840040] hover:text-white transition-all duration-200 shadow-sm hover:shadow-md"
               >
@@ -930,7 +1038,7 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 pt-6 relative">
-            {errors.associates && (
+            {errors.associes && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -940,12 +1048,12 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
                   <AlertCircle className="w-5 h-5 text-red-600" />
                 </div>
                 <p className="text-sm font-medium text-red-700">
-                  {errors.associates}
+                  {errors.associes}
                 </p>
               </motion.div>
             )}
 
-            {associates.map((associate, index) => (
+            {associes.map((associate, index) => (
               <motion.div
                 key={index}
                 initial={{ opacity: 0, x: -20 }}
@@ -976,81 +1084,83 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
 
                 {/* Informations de base - Compacte */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                  <div data-error={!!errors[`associate_${index}_first_name`]}>
+                  <div data-error={!!errors[`associate_${index}_nomAssocie`]}>
                     <Label className="text-xs font-semibold text-gray-700 mb-1.5 block">
                       Prénom *
                     </Label>
                     <Input
-                      value={associate.first_name || ""}
+                      value={associate.nomAssocie || ""}
                       onChange={(e) =>
                         handleNestedChange(
-                          "associates",
+                          "associes",
                           index,
-                          "first_name",
+                          "nomAssocie",
                           e.target.value
                         )
                       }
                       placeholder="Jean"
                       className={cn(
                         "h-9 text-sm border-2 transition-all duration-200",
-                        errors[`associate_${index}_first_name`]
+                        errors[`associate_${index}_nomAssocie`]
                           ? "border-red-300 focus:ring-red-100"
                           : "border-gray-200 hover:border-[#840040]/30 focus:border-[#840040] focus:ring-2 focus:ring-[#840040]/10"
                       )}
                     />
                   </div>
 
-                  <div data-error={!!errors[`associate_${index}_phone`]}>
+                  <div
+                    data-error={!!errors[`associate_${index}_telephoneAssocie`]}
+                  >
                     <Label className="text-xs font-semibold text-gray-700 mb-1.5 block">
                       Téléphone *
                     </Label>
                     <Input
                       type="tel"
-                      value={associate.phone || ""}
+                      value={associate.telephoneAssocie || ""}
                       onChange={(e) =>
                         handleNestedChange(
-                          "associates",
+                          "associes",
                           index,
-                          "phone",
+                          "telephoneAssocie",
                           e.target.value
                         )
                       }
                       placeholder="06 12 34 56 78"
                       className={cn(
                         "h-9 text-sm border-2 transition-all duration-200",
-                        errors[`associate_${index}_phone`]
+                        errors[`associate_${index}_telephoneAssocie`]
                           ? "border-red-300 focus:ring-red-100"
                           : "border-gray-200 hover:border-[#840040]/30 focus:border-[#840040] focus:ring-2 focus:ring-[#840040]/10"
                       )}
                     />
                   </div>
 
-                  <div data-error={!!errors[`associate_${index}_email`]}>
+                  <div data-error={!!errors[`associate_${index}_emailAssocie`]}>
                     <Label className="text-xs font-semibold text-gray-700 mb-1.5 block">
                       Email *
                     </Label>
                     <Input
-                      type="email"
-                      value={associate.email || ""}
+                      type="emailAssocie"
+                      value={associate.emailAssocie || ""}
                       onChange={(e) =>
                         handleNestedChange(
-                          "associates",
+                          "associes",
                           index,
-                          "email",
+                          "emailAssocie",
                           e.target.value
                         )
                       }
                       placeholder="exemple@email.fr"
                       className={cn(
                         "h-9 text-sm border-2 transition-all duration-200",
-                        errors[`associate_${index}_email`]
+                        errors[`associate_${index}_emailAssocie`]
                           ? "border-red-300 focus:ring-red-100"
                           : "border-gray-200 hover:border-[#840040]/30 focus:border-[#840040] focus:ring-2 focus:ring-[#840040]/10"
                       )}
                     />
                   </div>
 
-                  <div data-error={!!errors[`associate_${index}_capital`]}>
+                  <div data-error={!!errors[`associate_${index}_pourcentage`]}>
                     <Label className="text-xs font-semibold text-gray-700 mb-1.5 block">
                       % capital *
                     </Label>
@@ -1060,19 +1170,19 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
                         min={0}
                         max={100}
                         step={0.01}
-                        value={associate.capital_percentage || ""}
+                        value={associate.pourcentage || ""}
                         onChange={(e) =>
                           handleNestedChange(
-                            "associates",
+                            "associes",
                             index,
-                            "capital_percentage",
+                            "pourcentage",
                             parseFloat(e.target.value)
                           )
                         }
                         placeholder="50"
                         className={cn(
                           "h-9 text-sm border-2 transition-all duration-200 pr-7",
-                          errors[`associate_${index}_capital`]
+                          errors[`associate_${index}_pourcentage`]
                             ? "border-red-300 focus:ring-red-100"
                             : "border-gray-200 hover:border-[#840040]/30 focus:border-[#840040] focus:ring-2 focus:ring-[#840040]/10"
                         )}
@@ -1089,9 +1199,9 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
                   <Switch
                     className="mt-0"
                     id={`associate-manager-${index}`}
-                    checked={associate.is_manager || false}
+                    checked={associate.dirigeant || false}
                     onCheckedChange={(v) =>
-                      handleNestedChange("associates", index, "is_manager", v)
+                      handleNestedChange("associes", index, "dirigeant", v)
                     }
                   />
                   <Label
@@ -1103,7 +1213,7 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
                 </div>
 
                 {/* Documents */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4 border-t-2 border-gray-100">
+                {/* <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4 border-t-2 border-gray-100">
                   <div>
                     <Label className="text-xs font-semibold text-gray-700 mb-2 block">
                       CNI/Passeport
@@ -1115,7 +1225,7 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
                         accept=".pdf,.jpg,.jpeg,.png"
                         onChange={(e) =>
                           handleNestedChange(
-                            "associates",
+                            "associes",
                             index,
                             "id_document_url",
                             e.target.files?.[0]
@@ -1153,7 +1263,7 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
                         accept=".pdf,.jpg,.jpeg,.png"
                         onChange={(e) =>
                           handleNestedChange(
-                            "associates",
+                            "associes",
                             index,
                             "address_proof_url",
                             e.target.files?.[0]
@@ -1191,7 +1301,7 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
                         accept=".pdf,.jpg,.jpeg,.png"
                         onChange={(e) =>
                           handleNestedChange(
-                            "associates",
+                            "associes",
                             index,
                             "vitale_card_url",
                             e.target.files?.[0]
@@ -1229,7 +1339,7 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
                         accept=".pdf,.jpg,.jpeg,.png"
                         onChange={(e) =>
                           handleNestedChange(
-                            "associates",
+                            "associes",
                             index,
                             "family_book_url",
                             e.target.files?.[0]
@@ -1255,11 +1365,11 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
                       )}
                     </label>
                   </div>
-                </div>
+                </div> */}
               </motion.div>
             ))}
 
-            {associates.length === 0 && (
+            {associes.length === 0 && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -1277,7 +1387,7 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
                 <Button
                   variant="outline"
                   size="default"
-                  onClick={() => addItem("associates")}
+                  onClick={() => addItem("associes")}
                   style={{ color: "white" }}
                   className="gap-2 border-2 border-[#840040] text-[#840040] hover:bg-[#840040] hover:text-white transition-all duration-200 shadow-sm hover:shadow-md"
                 >
@@ -1521,13 +1631,13 @@ export default function SimplifiedForm({ onSubmit, isSubmitting }) {
       >
         <Button
           onClick={handleSubmit}
-          disabled={isSubmitting}
+          disabled={loadingSubmit}
           className="gap-3 bg-gradient-to-r from-[#840040] to-[#a00050] hover:from-[#6d0035] hover:to-[#840040] px-12 py-7 text-lg shadow-2xl hover:shadow-3xl transition-all duration-300 font-semibold group relative overflow-hidden"
           size="lg"
           style={{ padding: "30px  150px" }}
         >
           <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
-          {isSubmitting ? (
+          {loadingSubmit ? (
             <>
               <Loader2 className="w-6 h-6 animate-spin" />
               <span>Envoi en cours...</span>

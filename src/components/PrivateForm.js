@@ -2,40 +2,22 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { CheckCircle, FileText, Loader2 } from "lucide-react";
 import SimplifiedForm from "./company-creation/SimplifiedForm";
-
-const initialFormData = {
-  status: "draft",
-  company_type: "",
-  company_name: "",
-  business_activity: "",
-  share_capital: null,
-  tax_regime: "",
-  vat_regime: "franchise",
-  headquarters_address: "",
-  headquarters_postal_code: "",
-  headquarters_city: "",
-  headquarters_type: "",
-  associates: [],
-  managers: [],
-  contact_email: "",
-  contact_phone: "",
-  client_notes: "",
-};
+import { useEtape } from "../EtatGlobal.js";
 
 export default function CompanyCreationSimple() {
   const urlParams = new URLSearchParams(window.location.search);
   const preselectedType = urlParams.get("type");
 
-  const [formData, setFormData] = useState(initialFormData);
+  const { formData, setFormData } = useEtape();
   const [isLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   useEffect(() => {
     if (preselectedType) {
-      setFormData((prev) => ({ ...prev, company_type: preselectedType }));
+      setFormData((prev) => ({ ...prev, formeSociale: preselectedType }));
     }
-  }, [preselectedType]);
+  }, [preselectedType, setFormData]);
 
   const handleDataChange = (newData) => {
     setFormData(newData);
