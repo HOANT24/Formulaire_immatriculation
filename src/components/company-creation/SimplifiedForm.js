@@ -181,7 +181,6 @@ export default function SimplifiedForm({ onSubmit }) {
     addItem,
     removeItem,
   } = useEtape();
-  const [uploadingFiles, setUploadingFiles] = useState({});
   const [errors, setErrors] = useState({});
   const [businessActivityInput, setBusinessActivityInput] = useState("");
   const [isGeneratingActivity, setIsGeneratingActivity] = useState(false);
@@ -352,28 +351,16 @@ export default function SimplifiedForm({ onSubmit }) {
       telephoneAssocie: "",
       pourcentage: 0,
       dirigeant: false,
+
+      pieceId: null,
+      livretFamille: null,
+      carteSecurite: null,
+      adressePerso: null,
     });
   };
 
   const removeAssociate = (index) => {
     removeItem("associes", index);
-  };
-
-  const handleFileUpload = async (field, file) => {
-    if (!file) return;
-
-    setUploadingFiles((prev) => ({ ...prev, [field]: true }));
-    try {
-      // On simule juste une URL de fichier statique
-      const file_url = `https://example.com/${file.name}`;
-      console.log("File uploaded:", file_url);
-      handleChange(field, file_url);
-    } catch (error) {
-      console.error("Upload error:", error);
-      setErrors((prev) => ({ ...prev, [field]: "Erreur lors de l'upload" }));
-    } finally {
-      setUploadingFiles((prev) => ({ ...prev, [field]: false }));
-    }
   };
 
   const validate = () => {
@@ -396,7 +383,8 @@ export default function SimplifiedForm({ onSubmit }) {
   };
 
   const handleSubmit = async () => {
-    if (loadingSubmit) return; // anti double submit
+    if (loadingSubmit) return;
+
     if (!validate()) {
       const firstError = document.querySelector('[data-error="true"]');
       if (firstError) {
@@ -407,37 +395,95 @@ export default function SimplifiedForm({ onSubmit }) {
 
     try {
       setLoadingSubmit(true);
-      console.log("Submitting formData:", formData);
+
+      const formDataToSend = new FormData();
+
+      // -----------------------
+      // 1️⃣ Champs normaux (texte, booléens…)
+      // -----------------------
+      Object.keys(formData).forEach((key) => {
+        if (
+          key !== "associes" &&
+          key !== "adressse" &&
+          key !== "avisImposition" &&
+          key !== "dernierAvisImposition" &&
+          key !== "pieceIdHebergeur"
+        ) {
+          formDataToSend.append(key, formData[key] ?? "");
+        }
+      });
+
+      // -----------------------
+      // 2️⃣ Associes (JSON)
+      // -----------------------
+      formDataToSend.append(
+        "associes",
+        JSON.stringify(formData.associes || [])
+      );
+
+      // -----------------------
+      // 3️⃣ Documents société
+      // -----------------------
+      if (formData.adressse)
+        formDataToSend.append("adressse", formData.adressse);
+
+      if (formData.avisImposition)
+        formDataToSend.append("avisImposition", formData.avisImposition);
+
+      if (formData.dernierAvisImposition)
+        formDataToSend.append(
+          "dernierAvisImposition",
+          formData.dernierAvisImposition
+        );
+
+      if (formData.pieceIdHebergeur)
+        formDataToSend.append("pieceIdHebergeur", formData.pieceIdHebergeur);
+
+      // -----------------------
+      // 4️⃣ Documents dirigeants
+      // -----------------------
+      formData.associes?.forEach((associate) => {
+        if (associate.dirigeant) {
+          if (associate.pieceId)
+            formDataToSend.append("pieceId", associate.pieceId);
+
+          if (associate.livretFamille)
+            formDataToSend.append("livretFamille", associate.livretFamille);
+
+          if (associate.carteSecurite)
+            formDataToSend.append("carteSecurite", associate.carteSecurite);
+
+          if (associate.adressePerso)
+            formDataToSend.append("adressePerso", associate.adressePerso);
+        }
+      });
 
       const response = await fetch(
         `https://backend-myalfa.vercel.app/api/creation-sct/${id}`,
         {
           method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            ...formData,
-            custom_clauses: JSON.stringify(formData.custom_clauses || {}),
-            associes: JSON.stringify(formData.associes || []),
-          }),
+          body: formDataToSend, // ⚠️ PAS DE headers
         }
       );
-
       const data = await response.json();
 
       if (!response.ok) {
         throw new Error(data.message || "Erreur lors de la mise à jour");
       }
 
-      console.log("API success:", data);
+      await fetch(
+        "https://backend-myalfa.vercel.app/api/email-imm-client-post-form",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ id }), // on envoie uniquement l'id
+        }
+      );
 
-      // optionnel : callback parent
-      if (onSubmit) {
-        onSubmit(data);
-      }
+      if (onSubmit) onSubmit(data);
     } catch (error) {
-      console.error("Submit error:", error);
       setErrors((prev) => ({
         ...prev,
         submit: error.message || "Erreur serveur",
@@ -501,7 +547,6 @@ export default function SimplifiedForm({ onSubmit }) {
                 error={errors.formeSociale}
               />
             </div>
-
             <div data-error={!!errors.nomSociete}>
               <Label className="text-sm font-semibold text-gray-700 mb-2 block">
                 Dénomination sociale *
@@ -847,30 +892,64 @@ export default function SimplifiedForm({ onSubmit }) {
                     className="hidden"
                     accept=".pdf,.jpg,.jpeg,.png"
                     onChange={(e) =>
-                      handleFileUpload(
-                        "headquarters_proof_document",
-                        e.target.files?.[0]
-                      )
+                      setFormData((prev) => ({
+                        ...prev,
+                        adressse: e.target.files?.[0] || null,
+                      }))
                     }
-                    disabled={uploadingFiles.headquarters_proof_document}
                   />
-                  {uploadingFiles.headquarters_proof_document ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin text-[#840040]" />
-                      <span className="text-sm font-medium text-gray-700">
-                        Téléversement en cours...
-                      </span>
-                    </>
-                  ) : formData.headquarters_proof_document ? (
+
+                  {/* 1️⃣ Si nouveau fichier sélectionné */}
+                  {formData.adressse instanceof File ? (
                     <>
                       <div className="p-2 bg-emerald-50 rounded-lg">
                         <Check className="w-5 h-5 text-emerald-600" />
                       </div>
                       <span className="text-sm font-semibold text-emerald-700">
-                        Document téléversé avec succès
+                        {formData.adressse.name}
                       </span>
                     </>
+                  ) : /* 2️⃣ Si URL existante venant API */
+                  typeof formData.adressse === "string" &&
+                    formData.adressse !== "" ? (
+                    <div className="flex flex-col items-center justify-center text-center gap-2 w-full">
+                      <div className="p-2 bg-blue-50 rounded-lg">
+                        <FileText className="w-5 h-5 text-blue-600" />
+                      </div>
+
+                      <span className="text-sm font-semibold text-blue-700">
+                        Document existant
+                      </span>
+
+                      <div className="flex items-center justify-center gap-3">
+                        <a
+                          href={formData.adressse}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-[#840040] underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Consulter
+                        </a>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setFormData((prev) => ({
+                              ...prev,
+                              adressse: null,
+                            }));
+                          }}
+                          className="text-xs text-white-500 underline w-full"
+                        >
+                          Modifier
+                        </button>
+                      </div>
+                    </div>
                   ) : (
+                    /* 3️⃣ Aucun fichier */
                     <>
                       <div className="p-2 bg-gray-50 rounded-lg group-hover:bg-[#840040]/10 transition-colors">
                         <Upload className="w-5 h-5 text-gray-400 group-hover:text-[#840040] transition-colors" />
@@ -1213,159 +1292,337 @@ export default function SimplifiedForm({ onSubmit }) {
                 </div>
 
                 {/* Documents */}
-                {/* <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4 border-t-2 border-gray-100">
-                  <div>
-                    <Label className="text-xs font-semibold text-gray-700 mb-2 block">
-                      CNI/Passeport
-                    </Label>
-                    <label className="flex flex-col items-center justify-center gap-2 px-2 py-3 rounded-lg border-2 border-dashed border-gray-200 hover:border-[#840040] hover:bg-[#840040]/5 cursor-pointer transition-all duration-200 group bg-white">
-                      <input
-                        type="file"
-                        className="hidden"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) =>
-                          handleNestedChange(
-                            "associes",
-                            index,
-                            "id_document_url",
-                            e.target.files?.[0]
-                          )
-                        }
-                      />
-                      {associate.id_document_url ? (
-                        <>
-                          <div className="p-1.5 bg-emerald-50 rounded-lg">
-                            <Check className="w-4 h-4 text-emerald-600" />
-                          </div>
-                          <span className="text-[10px] font-semibold text-emerald-700">
-                            Envoyé
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="w-4 h-4 text-gray-400 group-hover:text-[#840040] transition-colors" />
-                          <span className="text-[10px] font-medium text-gray-600 group-hover:text-[#840040] transition-colors">
-                            Ajouter
-                          </span>
-                        </>
-                      )}
-                    </label>
-                  </div>
+                {associate.dirigeant && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4 border-t-2 border-gray-100">
+                    <div>
+                      <Label className="text-xs font-semibold text-gray-700 mb-2 block">
+                        CNI/Passeport
+                      </Label>
+                      <label className="flex flex-col items-center justify-center gap-2 px-2 py-3 rounded-lg border-2 border-dashed border-gray-200 hover:border-[#840040] hover:bg-[#840040]/5 cursor-pointer transition-all duration-200 group bg-white">
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          onChange={(e) =>
+                            handleNestedChange(
+                              "associes",
+                              index,
+                              "pieceId",
+                              e.target.files?.[0] || null
+                            )
+                          }
+                        />
 
-                  <div>
-                    <Label className="text-xs font-semibold text-gray-700 mb-2 block">
-                      Justif. adresse
-                    </Label>
-                    <label className="flex flex-col items-center justify-center gap-2 px-2 py-3 rounded-lg border-2 border-dashed border-gray-200 hover:border-[#840040] hover:bg-[#840040]/5 cursor-pointer transition-all duration-200 group bg-white">
-                      <input
-                        type="file"
-                        className="hidden"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) =>
-                          handleNestedChange(
-                            "associes",
-                            index,
-                            "address_proof_url",
-                            e.target.files?.[0]
-                          )
-                        }
-                      />
-                      {associate.address_proof_url ? (
-                        <>
-                          <div className="p-1.5 bg-emerald-50 rounded-lg">
-                            <Check className="w-4 h-4 text-emerald-600" />
-                          </div>
-                          <span className="text-[10px] font-semibold text-emerald-700">
-                            Envoyé
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="w-4 h-4 text-gray-400 group-hover:text-[#840040] transition-colors" />
-                          <span className="text-[10px] font-medium text-gray-600 group-hover:text-[#840040] transition-colors">
-                            Ajouter
-                          </span>
-                        </>
-                      )}
-                    </label>
-                  </div>
+                        {/* 1️⃣ Nouveau fichier sélectionné */}
+                        {associate.pieceId instanceof File ? (
+                          <>
+                            <div className="p-1.5 bg-emerald-50 rounded-lg">
+                              <Check className="w-4 h-4 text-emerald-600" />
+                            </div>
+                            <span className="text-[10px] font-semibold text-emerald-700 text-center break-all">
+                              {associate.pieceId.name}
+                            </span>
+                          </>
+                        ) : /* 2️⃣ URL venant API */
+                        typeof associate.pieceId === "string" &&
+                          associate.pieceId !== "" ? (
+                          <div className="flex flex-col items-center justify-center text-center gap-2 w-full">
+                            <div className="p-1.5 bg-blue-50 rounded-lg">
+                              <FileText className="w-4 h-4 text-blue-600" />
+                            </div>
 
-                  <div>
-                    <Label className="text-xs font-semibold text-gray-700 mb-2 block">
-                      Carte vitale
-                    </Label>
-                    <label className="flex flex-col items-center justify-center gap-2 px-2 py-3 rounded-lg border-2 border-dashed border-gray-200 hover:border-[#840040] hover:bg-[#840040]/5 cursor-pointer transition-all duration-200 group bg-white">
-                      <input
-                        type="file"
-                        className="hidden"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) =>
-                          handleNestedChange(
-                            "associes",
-                            index,
-                            "vitale_card_url",
-                            e.target.files?.[0]
-                          )
-                        }
-                      />
-                      {associate.vitale_card_url ? (
-                        <>
-                          <div className="p-1.5 bg-emerald-50 rounded-lg">
-                            <Check className="w-4 h-4 text-emerald-600" />
-                          </div>
-                          <span className="text-[10px] font-semibold text-emerald-700">
-                            Envoyé
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="w-4 h-4 text-gray-400 group-hover:text-[#840040] transition-colors" />
-                          <span className="text-[10px] font-medium text-gray-600 group-hover:text-[#840040] transition-colors">
-                            Ajouter
-                          </span>
-                        </>
-                      )}
-                    </label>
-                  </div>
+                            <span className="text-[10px] font-semibold text-blue-700">
+                              Document existant
+                            </span>
 
-                  <div>
-                    <Label className="text-xs font-semibold text-gray-700 mb-2 block">
-                      Livret famille
-                    </Label>
-                    <label className="flex flex-col items-center justify-center gap-2 px-2 py-3 rounded-lg border-2 border-dashed border-gray-200 hover:border-[#840040] hover:bg-[#840040]/5 cursor-pointer transition-all duration-200 group bg-white">
-                      <input
-                        type="file"
-                        className="hidden"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) =>
-                          handleNestedChange(
-                            "associes",
-                            index,
-                            "family_book_url",
-                            e.target.files?.[0]
-                          )
-                        }
-                      />
-                      {associate.family_book_url ? (
-                        <>
-                          <div className="p-1.5 bg-emerald-50 rounded-lg">
-                            <Check className="w-4 h-4 text-emerald-600" />
+                            <div className="flex items-center gap-2">
+                              <a
+                                href={associate.pieceId}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[10px] text-[#840040] underline"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                Consulter
+                              </a>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleNestedChange(
+                                    "associes",
+                                    index,
+                                    "pieceId",
+                                    null
+                                  );
+                                }}
+                                className="text-[10px] text-white-500 underline w-full"
+                              >
+                                Modifier
+                              </button>
+                            </div>
                           </div>
-                          <span className="text-[10px] font-semibold text-emerald-700">
-                            Envoyé
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="w-4 h-4 text-gray-400 group-hover:text-[#840040] transition-colors" />
-                          <span className="text-[10px] font-medium text-gray-600 group-hover:text-[#840040] transition-colors">
-                            Ajouter
-                          </span>
-                        </>
-                      )}
-                    </label>
+                        ) : (
+                          /* 3️⃣ Aucun fichier */
+                          <>
+                            <Upload className="w-4 h-4 text-gray-400 group-hover:text-[#840040] transition-colors" />
+                            <span className="text-[10px] font-medium text-gray-600 group-hover:text-[#840040] transition-colors">
+                              Ajouter
+                            </span>
+                          </>
+                        )}
+                      </label>
+                    </div>
+
+                    <div>
+                      <Label className="text-xs font-semibold text-gray-700 mb-2 block">
+                        Justif. adresse
+                      </Label>
+                      <label className="flex flex-col items-center justify-center gap-2 px-2 py-3 rounded-lg border-2 border-dashed border-gray-200 hover:border-[#840040] hover:bg-[#840040]/5 cursor-pointer transition-all duration-200 group bg-white">
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          onChange={(e) =>
+                            handleNestedChange(
+                              "associes",
+                              index,
+                              "adressePerso",
+                              e.target.files?.[0] || null
+                            )
+                          }
+                        />
+
+                        {/* 1️⃣ Nouveau fichier sélectionné */}
+                        {associate.adressePerso instanceof File ? (
+                          <>
+                            <div className="p-1.5 bg-emerald-50 rounded-lg">
+                              <Check className="w-4 h-4 text-emerald-600" />
+                            </div>
+                            <span className="text-[10px] font-semibold text-emerald-700 text-center break-all">
+                              {associate.adressePerso.name}
+                            </span>
+                          </>
+                        ) : /* 2️⃣ URL venant API */
+                        typeof associate.adressePerso === "string" &&
+                          associate.adressePerso !== "" ? (
+                          <div className="flex flex-col items-center justify-center text-center gap-2 w-full">
+                            <div className="p-1.5 bg-blue-50 rounded-lg">
+                              <FileText className="w-4 h-4 text-blue-600" />
+                            </div>
+
+                            <span className="text-[10px] font-semibold text-blue-700">
+                              Document existant
+                            </span>
+
+                            <div className="flex items-center gap-2">
+                              <a
+                                href={associate.adressePerso}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[10px] text-[#840040] underline"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                Consulter
+                              </a>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleNestedChange(
+                                    "associes",
+                                    index,
+                                    "pieceId",
+                                    null
+                                  );
+                                }}
+                                className="text-[10px] text-white-500 underline w-full"
+                              >
+                                Modifier
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          /* 3️⃣ Aucun fichier */
+                          <>
+                            <Upload className="w-4 h-4 text-gray-400 group-hover:text-[#840040] transition-colors" />
+                            <span className="text-[10px] font-medium text-gray-600 group-hover:text-[#840040] transition-colors">
+                              Ajouter
+                            </span>
+                          </>
+                        )}
+                      </label>
+                    </div>
+
+                    <div>
+                      <Label className="text-xs font-semibold text-gray-700 mb-2 block">
+                        Carte vitale
+                      </Label>
+                      <label className="flex flex-col items-center justify-center gap-2 px-2 py-3 rounded-lg border-2 border-dashed border-gray-200 hover:border-[#840040] hover:bg-[#840040]/5 cursor-pointer transition-all duration-200 group bg-white">
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          onChange={(e) =>
+                            handleNestedChange(
+                              "associes",
+                              index,
+                              "carteSecurite",
+                              e.target.files?.[0] || null
+                            )
+                          }
+                        />
+
+                        {/* 1️⃣ Nouveau fichier sélectionné */}
+                        {associate.carteSecurite instanceof File ? (
+                          <>
+                            <div className="p-1.5 bg-emerald-50 rounded-lg">
+                              <Check className="w-4 h-4 text-emerald-600" />
+                            </div>
+                            <span className="text-[10px] font-semibold text-emerald-700 text-center break-all">
+                              {associate.carteSecurite.name}
+                            </span>
+                          </>
+                        ) : /* 2️⃣ URL venant API */
+                        typeof associate.carteSecurite === "string" &&
+                          associate.carteSecurite !== "" ? (
+                          <div className="flex flex-col items-center justify-center text-center gap-2 w-full">
+                            <div className="p-1.5 bg-blue-50 rounded-lg">
+                              <FileText className="w-4 h-4 text-blue-600" />
+                            </div>
+
+                            <span className="text-[10px] font-semibold text-blue-700">
+                              Document existant
+                            </span>
+
+                            <div className="flex items-center gap-2">
+                              <a
+                                href={associate.carteSecurite}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[10px] text-[#840040] underline"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                Consulter
+                              </a>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleNestedChange(
+                                    "associes",
+                                    index,
+                                    "pieceId",
+                                    null
+                                  );
+                                }}
+                                className="text-[10px] text-white-500 underline w-full"
+                              >
+                                Modifier
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          /* 3️⃣ Aucun fichier */
+                          <>
+                            <Upload className="w-4 h-4 text-gray-400 group-hover:text-[#840040] transition-colors" />
+                            <span className="text-[10px] font-medium text-gray-600 group-hover:text-[#840040] transition-colors">
+                              Ajouter
+                            </span>
+                          </>
+                        )}
+                      </label>
+                    </div>
+
+                    <div>
+                      <Label className="text-xs font-semibold text-gray-700 mb-2 block">
+                        Livret famille
+                      </Label>
+                      <label className="flex flex-col items-center justify-center gap-2 px-2 py-3 rounded-lg border-2 border-dashed border-gray-200 hover:border-[#840040] hover:bg-[#840040]/5 cursor-pointer transition-all duration-200 group bg-white">
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          onChange={(e) =>
+                            handleNestedChange(
+                              "associes",
+                              index,
+                              "livretFamille",
+                              e.target.files?.[0] || null
+                            )
+                          }
+                        />
+
+                        {/* 1️⃣ Nouveau fichier sélectionné */}
+                        {associate.livretFamille instanceof File ? (
+                          <>
+                            <div className="p-1.5 bg-emerald-50 rounded-lg">
+                              <Check className="w-4 h-4 text-emerald-600" />
+                            </div>
+                            <span className="text-[10px] font-semibold text-emerald-700 text-center break-all">
+                              {associate.livretFamille.name}
+                            </span>
+                          </>
+                        ) : /* 2️⃣ URL venant API */
+                        typeof associate.livretFamille === "string" &&
+                          associate.livretFamille !== "" ? (
+                          <div className="flex flex-col items-center justify-center text-center gap-2 w-full">
+                            <div className="p-1.5 bg-blue-50 rounded-lg">
+                              <FileText className="w-4 h-4 text-blue-600" />
+                            </div>
+
+                            <span className="text-[10px] font-semibold text-blue-700">
+                              Document existant
+                            </span>
+
+                            <div className="flex items-center gap-2">
+                              <a
+                                href={associate.livretFamille}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[10px] text-[#840040] underline"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                Consulter
+                              </a>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleNestedChange(
+                                    "associes",
+                                    index,
+                                    "pieceId",
+                                    null
+                                  );
+                                }}
+                                className="text-[10px] text-white-500 underline w-full"
+                              >
+                                Modifier
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          /* 3️⃣ Aucun fichier */
+                          <>
+                            <Upload className="w-4 h-4 text-gray-400 group-hover:text-[#840040] transition-colors" />
+                            <span className="text-[10px] font-medium text-gray-600 group-hover:text-[#840040] transition-colors">
+                              Ajouter
+                            </span>
+                          </>
+                        )}
+                      </label>
+                    </div>
                   </div>
-                </div> */}
+                )}
               </motion.div>
             ))}
 

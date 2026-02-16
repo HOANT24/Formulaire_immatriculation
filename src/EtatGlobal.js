@@ -48,6 +48,11 @@ const initialFormData = {
   client_notes: "",
 
   custom_clauses: {},
+
+  adressse: null,
+  avisImposition: null,
+  dernierAvisImposition: null,
+  pieceIdHebergeur: null,
 };
 
 export function EtapeProvider({ children }) {
@@ -111,6 +116,7 @@ export function EtapeProvider({ children }) {
         const mappedData = {
           ...formData,
           loading: false,
+          emailLead: data.formLead.mail || "",
           formeSociale: data.formeSociale === "N/A" ? "" : data.formeSociale,
           nomSociete: data.nomSociete || "",
           siegeSocial: data.siegeSocial || "",
@@ -123,6 +129,7 @@ export function EtapeProvider({ children }) {
           ville: data.ville || "",
           regimeFiscal: data.regimeFiscal || "",
           regimeTVA: data.regimeTVA || "",
+          adressse: data.adressse || null,
           associes:
             data.associes?.map((associe) => ({
               nomAssocie: associe.nomAssocie || "",
@@ -130,6 +137,10 @@ export function EtapeProvider({ children }) {
               telephoneAssocie: associe.telephoneAssocie || "",
               pourcentage: associe.pourcentage || 0,
               dirigeant: associe.dirigeant || false,
+              pieceId: data.pieceId || null,
+              livretFamille: data.livretFamille || null,
+              carteSecurite: data.carteSecurite || null,
+              adressePerso: data.adressePerso || null,
             })) || [],
           custom_clauses: mapCustomClausesFromApi(data),
         };
