@@ -59,6 +59,7 @@ const companyTypes = [
   "SCP",
   "SEL",
   "N/A",
+  "Je ne sais pas, j'ai besoin d'aide",
 ];
 
 const headquartersTypes = [
@@ -166,9 +167,17 @@ const regimeFiscal = [
   "IR BNC réel",
   "IR RF",
   "IR LMNP",
+  "Je ne sais pas, j'ai besoin d'aide",
 ];
 
-const regimeTVAs = ["N/A", "Franchise", "RSI", "RN", "Mini réel"];
+const regimeTVAs = [
+  "N/A",
+  "Franchise",
+  "RSI",
+  "RN",
+  "Mini réel",
+  "Je ne sais pas, j'ai besoin d'aide",
+];
 
 export default function SimplifiedForm({ onSubmit }) {
   const { id } = useParams();
@@ -367,6 +376,7 @@ export default function SimplifiedForm({ onSubmit }) {
     const newErrors = {};
 
     if (!formData.formeSociale) newErrors.formeSociale = "Requis";
+    if (!formData.banque) newErrors.banque = "Requis";
     if (!formData.nomSociete?.trim()) newErrors.nomSociete = "Requis";
 
     if (!formData.associes?.length) {
@@ -654,7 +664,7 @@ export default function SimplifiedForm({ onSubmit }) {
 
               <div>
                 <Label className="text-sm font-semibold text-gray-700 mb-2 block">
-                  Banque
+                  Banque *
                 </Label>
 
                 <SimpleSelect
@@ -662,6 +672,7 @@ export default function SimplifiedForm({ onSubmit }) {
                   onChange={(v) => handleChange("banque", v)}
                   options={banques}
                   placeholder="Sélectionnez votre banque..."
+                  error={errors.banque}
                 />
               </div>
             </div>
