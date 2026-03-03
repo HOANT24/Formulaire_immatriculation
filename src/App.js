@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import "./styles/global.css";
 import ProspectForm from "./components/ProspectForm.js";
 import PrivateForm from "./components/PrivateForm.js";
+import Mandat from "./pages/Mandat/Mandat.js";
 import { EtapeProvider } from "./EtatGlobal";
 
 function App() {
@@ -31,6 +32,22 @@ function App() {
             element={
               <EtapeProvider>
                 <PrivateForm />
+              </EtapeProvider>
+            }
+          />
+          <Route
+            path="/customer/mandat"
+            element={
+              <EtapeProvider>
+                <Mandat />
+              </EtapeProvider>
+            }
+          />
+          <Route
+            path="/customer/mandat/:id"
+            element={
+              <EtapeProvider>
+                <Mandat />
               </EtapeProvider>
             }
           />
