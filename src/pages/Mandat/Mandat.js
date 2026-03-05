@@ -19,17 +19,21 @@ function Mandat() {
   const today = new Date().toISOString().split("T")[0];
   const [scanning, setScanning] = useState(false);
   const [isPdf, setIsPdf] = useState(false);
+  const [ribMessage, setRibMessage] = useState("");
 
   const [formData, setFormData] = useState({
     nom: "",
     rue: "",
     code_postal: "",
     pays: "",
+    bic: "",
     rib: "",
     ribDocument: null, // 👈 AJOUT
     dateSignature: today,
     lieu: "",
   });
+
+  console.log("pdf", isPdf);
 
   const [loading, setLoading] = useState(true); // loading fetch API
   const [signing, setSigning] = useState(false); // loading submit
@@ -58,41 +62,13 @@ function Mandat() {
     fetchDocument();
   }, [id]);
 
-  const handleChange = (e) => {
-    const { name, value, files } = e.target;
-
-    if (name === "ribDocument" && files && files[0]) {
-      const file = files[0];
-
-      setFormData((prev) => ({
-        ...prev,
-        ribDocument: file,
-      }));
-
-      // Vérifie si PDF
-      if (file.type === "application/pdf") {
-        setIsPdf(true);
-      } else {
-        setIsPdf(false);
-      }
-
-      return;
-    }
-
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handleScanRib = async () => {
-    if (!formData.ribDocument) return;
-
+  const scanRibAutomatically = async (file) => {
     try {
       setScanning(true);
+      setRibMessage("");
 
       const formDataUpload = new FormData();
-      formDataUpload.append("ribDocument", formData.ribDocument);
+      formDataUpload.append("ribDocument", file);
 
       const response = await fetch(
         "https://backend-myalfa.vercel.app/api/extract-rib",
@@ -104,20 +80,59 @@ function Mandat() {
 
       const data = await response.json();
 
-      if (data.success && data.rib) {
+      if (data.success && data.rib && data.bic) {
         setFormData((prev) => ({
           ...prev,
           rib: data.rib,
+          bic: data.bic,
         }));
+
+        setRibMessage(
+          "Veuillez vérifier les informations récupérées avant de signer"
+        );
       } else {
-        alert("Aucun IBAN trouvé dans le document.");
+        setRibMessage(
+          "Les informations n'ont pu être récupérées.\nMerci de saisir ci-dessous l'IBAN et le code BIC."
+        );
       }
     } catch (error) {
       console.error("Erreur scan RIB:", error);
-      alert("Erreur lors du scan.");
+
+      setRibMessage(
+        "Les informations n'ont pu être récupérées.\nMerci de saisir ci-dessous l'IBAN et le code BIC."
+      );
     } finally {
       setScanning(false);
     }
+  };
+
+  const handleChange = (e) => {
+    const { name, value, files } = e.target;
+
+    if (name === "ribDocument" && files && files[0]) {
+      const file = files[0];
+
+      setFormData((prev) => ({
+        ...prev,
+        ribDocument: file,
+      }));
+
+      if (file.type === "application/pdf") {
+        setIsPdf(true);
+
+        // Scan automatique
+        scanRibAutomatically(file);
+      } else {
+        setIsPdf(false);
+      }
+
+      return;
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   const handleSubmit = (e) => {
@@ -228,7 +243,6 @@ function Mandat() {
                 <label className="block text-sm font-semibold text-slate-600 mb-2">
                   RIB
                 </label>
-
                 {/* Document RIB */}
                 <div>
                   <label className="block text-sm font-semibold text-slate-600 mb-2">
@@ -248,33 +262,45 @@ function Mandat() {
                         className="w-full outline-none bg-transparent text-slate-600 file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-slate-100 hover:file:bg-slate-200"
                       />
                     </div>
-
-                    {/* Bouton Scan */}
-                    <button
-                      type="button"
-                      onClick={handleScanRib}
-                      disabled={!isPdf || scanning}
-                      className={`px-5 py-2 rounded-xl m-0 w-1/3 font-semibold transition-all duration-300 whitespace-nowrap ${
-                        !isPdf || scanning
-                          ? "bg-gray-300 cursor-not-allowed text-white"
-                          : "bg-[#8B1538] hover:bg-indigo-700 text-white"
-                      }`}
-                    >
-                      {scanning ? "Scan..." : "Scanner si PDF"}
-                    </button>
                   </div>
                 </div>
-                <div className="flex items-center border rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-[#8B1538]">
+                {scanning && (
+                  <p className="text-sm text-slate-500 mt-2 flex items-center gap-2">
+                    <Loader2 className="animate-spin" size={16} />
+                    Analyse du document...
+                  </p>
+                )}
+                {ribMessage && (
+                  <p className="text-sm mt-2 mb-2 text-slate-600 whitespace-pre-line">
+                    {ribMessage}
+                  </p>
+                )}
+                <div className="flex items-center  mb-4 border rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-[#8B1538]">
                   <CreditCard className="text-slate-400 mr-2" size={18} />
                   <input
                     type="text"
-                    name="rib"
-                    value={formData.rib}
+                    name="bic"
+                    value={formData.bic}
                     onChange={handleChange}
                     required
                     className="w-full outline-none bg-transparent"
-                    placeholder="Votre RIB"
+                    placeholder="Code BIC"
                   />
+                </div>
+                <div className="flex items-center w-full">
+                  <p className="w-1/6 text-slate-400">IBAN : </p>
+                  <div className="w-full flex items-center border rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-[#8B1538]">
+                    <CreditCard className="text-slate-400 mr-2" size={18} />
+                    <input
+                      type="text"
+                      name="rib"
+                      value={formData.rib}
+                      onChange={handleChange}
+                      required
+                      className="w-full outline-none bg-transparent"
+                      placeholder="Votre RIB"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -331,12 +357,12 @@ function Mandat() {
           </div>
 
           {/* PDF VIEWER */}
-          <div className="w-full lg:w-1/2 bg-white mt-10 border-t lg:border-t-0 lg:border-l">
+          <div className="w-full lg:w-1/2 bg-white mt-20 border-t lg:border-t-0 lg:border-l">
             <div className="relative h-[700px] lg:h-full">
               {/* PDF */}
               <div className="h-full">
                 <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js">
-                  <Viewer fileUrl="https://nrcdumqfyl1z2bwl.public.blob.vercel-storage.com/Mandat.pdf" />
+                  <Viewer fileUrl="https://nrcdumqfyl1z2bwl.public.blob.vercel-storage.com/Mandat0503.pdf" />
                 </Worker>
               </div>
 
@@ -352,7 +378,7 @@ function Mandat() {
     absolute 
     bg-transparent 
     border 
-    bg-red-500/40
+    bg-red-500/20
     border-[#8B1538]/40
     focus:border-[#8B1538]
     focus:outline-none
@@ -365,7 +391,7 @@ function Mandat() {
 
   "
                   style={{
-                    top: "21.2%",
+                    top: "21%",
                     left: "33%",
                     width: "50%",
                   }}
@@ -381,7 +407,7 @@ function Mandat() {
     absolute 
     bg-transparent 
     border 
-    bg-red-500/40
+    bg-red-500/20
     focus:border-[#8B1538]
     focus:outline-none
     text-[0.5rem] 
@@ -392,7 +418,7 @@ function Mandat() {
     duration-200
   "
                   style={{
-                    top: "24%",
+                    top: "23.5%",
                     left: "33%",
                     width: "50%",
                   }}
@@ -407,7 +433,7 @@ function Mandat() {
     absolute 
     bg-transparent 
     border 
-    bg-red-500/40
+    bg-red-500/20
     focus:border-[#8B1538]
     focus:outline-none
     text-[0.5rem] 
@@ -418,7 +444,7 @@ function Mandat() {
     duration-200
   "
                   style={{
-                    top: "26.5%",
+                    top: "26%",
                     left: "33%",
                     width: "50%",
                   }}
@@ -433,7 +459,7 @@ function Mandat() {
     absolute 
     bg-transparent 
     border 
-    bg-red-500/40
+    bg-red-500/20
     focus:border-[#8B1538]
     focus:outline-none
     text-[0.5rem] 
@@ -444,7 +470,33 @@ function Mandat() {
     duration-200
   "
                   style={{
-                    top: "31%",
+                    top: "30%",
+                    left: "33%",
+                    width: "50%",
+                  }}
+                />
+
+                <input
+                  type="text"
+                  value={formData.bic}
+                  onChange={handleChange}
+                  name="rib"
+                  className="
+    absolute 
+    bg-transparent 
+    border 
+    bg-red-500/20
+    focus:border-[#8B1538]
+    focus:outline-none
+    text-[0.5rem] 
+    font-bold
+    text-slate-800
+    pointer-events-auto
+    transition-all
+    duration-200
+  "
+                  style={{
+                    top: "33.2%",
                     left: "33%",
                     width: "50%",
                   }}
@@ -459,7 +511,7 @@ function Mandat() {
     absolute 
     bg-transparent 
     border 
-    bg-red-500/40
+    bg-red-500/20
     focus:border-[#8B1538]
     focus:outline-none
     text-[0.5rem] 
@@ -470,7 +522,7 @@ function Mandat() {
     duration-200
   "
                   style={{
-                    top: "35.5%",
+                    top: "35.2%",
                     left: "33%",
                     width: "50%",
                   }}
@@ -484,7 +536,7 @@ function Mandat() {
     absolute 
     bg-transparent 
     border 
-    bg-red-500/40
+    bg-red-500/20
     focus:border-[#8B1538]
     focus:outline-none
     text-[0.5rem] 
@@ -495,7 +547,7 @@ function Mandat() {
     duration-200
   "
                   style={{
-                    top: "55.6%",
+                    top: "54.6%",
                     left: "33%",
                     width: "50%",
                   }}
@@ -510,7 +562,7 @@ function Mandat() {
     absolute 
     bg-transparent 
     border 
-    bg-red-500/40
+    bg-red-500/20
     focus:border-[#8B1538]
     focus:outline-none
     text-[0.5rem] 
@@ -521,7 +573,7 @@ function Mandat() {
     duration-200
   "
                   style={{
-                    top: "57.5%",
+                    top: "56.5%",
                     left: "33%",
                     width: "50%",
                   }}
