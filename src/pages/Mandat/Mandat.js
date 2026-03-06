@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { Worker, Viewer } from "@react-pdf-viewer/core";
 import "@react-pdf-viewer/core/lib/styles/index.css";
+import PizZip from "pizzip";
+import Docxtemplater from "docxtemplater";
 
 import {
   User,
@@ -12,6 +14,7 @@ import {
   FileSignature,
   PenLine,
   Loader2,
+  Mail,
 } from "lucide-react";
 
 function Mandat() {
@@ -20,9 +23,17 @@ function Mandat() {
   const [scanning, setScanning] = useState(false);
   const [isPdf, setIsPdf] = useState(false);
   const [ribMessage, setRibMessage] = useState("");
+  const [pdfUrl, setPdfUrl] = useState(null);
+  const now = new Date();
+  const hours = String(now.getHours()).padStart(2, "0"); // HH
+  const minutes = String(now.getMinutes()).padStart(2, "0"); // mm
+  const currentTime = `${hours}:${minutes}`; // HH:mm
+  const [signingLink, setSigningLink] = useState(null);
 
   const [formData, setFormData] = useState({
+    rum: "RUM123456",
     nom: "",
+    email: "",
     rue: "",
     code_postal: "",
     pays: "",
@@ -30,6 +41,7 @@ function Mandat() {
     rib: "",
     ribDocument: null, // 👈 AJOUT
     dateSignature: today,
+    heureSignature: currentTime,
     lieu: "",
   });
 
@@ -135,15 +147,110 @@ function Mandat() {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setSigning(true);
 
-    // Simuler envoi
-    setTimeout(() => {
-      console.log("Form Data:", formData);
+    try {
+      setSigning(true);
+
+      // 1️⃣ Charger le template Word depuis /public
+      const response = await fetch("/Mandat.docx");
+
+      if (!response.ok) {
+        throw new Error("Erreur lors du chargement du fichier Word");
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+
+      // 2️⃣ Charger le zip
+      const zip = new PizZip(arrayBuffer);
+
+      const doc = new Docxtemplater(zip, {
+        paragraphLoop: true,
+        linebreaks: true,
+      });
+
+      // 3️⃣ Remplir les variables avec formData
+      doc.render(formData);
+
+      // 4️⃣ Générer le Word rempli
+      const output = doc.getZip().generate({ type: "blob" });
+
+      // 5️⃣ Préparer l'envoi à l'API
+      const formDataToSend = new FormData();
+      formDataToSend.append("file", output, "Mandat.docx");
+
+      // 6️⃣ Envoyer à l'API pour conversion PDF
+      const uploadResponse = await fetch(
+        "https://backend-myalfa.vercel.app/api/upload",
+        {
+          method: "POST",
+          body: formDataToSend,
+        }
+      );
+
+      if (!uploadResponse.ok) {
+        throw new Error("Erreur lors de l'envoi du fichier");
+      }
+
+      // 7️⃣ Récupération de l'URL du PDF
+      const { pdfUrl } = await uploadResponse.json();
+
+      setPdfUrl(pdfUrl);
+
+      // 8️⃣ Envoi à l'API DOCUSIGN
+      const payload = {
+        pdfUrl: pdfUrl,
+        emailSubject: `Signature du mandat - ${formData.nom}`,
+        clientId: parseInt(id),
+
+        rum: formData.rum,
+        nom: formData.nom,
+        rue: formData.rue,
+        code_postal: formData.code_postal,
+        pays: formData.pays,
+        bic: formData.bic,
+        rib: formData.rib,
+        dateSignature: formData.dateSignature,
+        lieu: formData.lieu,
+
+        signers: [
+          {
+            name: formData.nom,
+            email: formData.email, // si tu as l'email client remplace ici
+            signatures: [
+              {
+                pageNumber: 1,
+                xPosition: 150,
+                yPosition: 625,
+              },
+            ],
+          },
+        ],
+      };
+
+      const signResponse = await fetch(
+        "https://backend-myalfa.vercel.app/api/mandat/send",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const signData = await signResponse.json();
+
+      if (signData.signingLinks && signData.signingLinks.length > 0) {
+        setSigningLink(signData.signingLinks[0].url);
+      }
+    } catch (error) {
+      console.error("Erreur génération mandat:", error);
+      alert("Une erreur est survenue : " + error.message);
+    } finally {
       setSigning(false);
-    }, 1500);
+    }
   };
 
   if (loading) {
@@ -182,10 +289,23 @@ function Mandat() {
                     value={formData.nom}
                     onChange={handleChange}
                     required
-                    className="w-full outline-none bg-transparent"
+                    className="w-full outline-none "
                     placeholder="Votre nom complet"
                   />
                 </div>
+              </div>
+
+              <div className="flex items-center border rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-[#8B1538]">
+                <Mail className="text-slate-400 mr-2" size={18} />
+                <input
+                  type="text"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  required
+                  className="w-full outline-none "
+                  placeholder="Email pour envoi du mandat signé"
+                />
               </div>
 
               {/* Adresse */}
@@ -201,7 +321,7 @@ function Mandat() {
                     value={formData.rue}
                     onChange={handleChange}
                     required
-                    className="w-full outline-none bg-transparent"
+                    className="w-full outline-none "
                     placeholder="Numéro de rue"
                   />
                 </div>
@@ -213,7 +333,7 @@ function Mandat() {
                     value={formData.code_postal}
                     onChange={handleChange}
                     required
-                    className="w-full outline-none bg-transparent"
+                    className="w-full outline-none "
                     placeholder="Code postal et ville"
                   />
                 </div>
@@ -232,7 +352,7 @@ function Mandat() {
                     value={formData.pays}
                     onChange={handleChange}
                     required
-                    className="w-full outline-none bg-transparent"
+                    className="w-full outline-none "
                     placeholder="Votre pays"
                   />
                 </div>
@@ -258,8 +378,7 @@ function Mandat() {
                         name="ribDocument"
                         accept=".pdf,image/*"
                         onChange={handleChange}
-                        required
-                        className="w-full outline-none bg-transparent text-slate-600 file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-slate-100 hover:file:bg-slate-200"
+                        className="w-full outline-none  text-slate-600 file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-slate-100 hover:file:bg-slate-200"
                       />
                     </div>
                   </div>
@@ -283,7 +402,7 @@ function Mandat() {
                     value={formData.bic}
                     onChange={handleChange}
                     required
-                    className="w-full outline-none bg-transparent"
+                    className="w-full outline-none "
                     placeholder="Code BIC"
                   />
                 </div>
@@ -297,7 +416,7 @@ function Mandat() {
                       value={formData.rib}
                       onChange={handleChange}
                       required
-                      className="w-full outline-none bg-transparent"
+                      className="w-full outline-none "
                       placeholder="Votre RIB"
                     />
                   </div>
@@ -316,7 +435,7 @@ function Mandat() {
                     name="dateSignature"
                     value={formData.dateSignature}
                     disabled
-                    className="w-full outline-none bg-transparent cursor-not-allowed"
+                    className="w-full outline-none  cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -334,7 +453,7 @@ function Mandat() {
                     value={formData.lieu}
                     onChange={handleChange}
                     required
-                    className="w-full outline-none bg-transparent"
+                    className="w-full outline-none "
                     placeholder="Lieu de signature"
                   />
                 </div>
@@ -353,19 +472,45 @@ function Mandat() {
                 )}
                 {signing ? "Envoi..." : "Signer le Mandat"}
               </button>
+              {pdfUrl && signingLink && (
+                <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-xl">
+                  <p className="text-sm text-green-700 mb-2">
+                    Mandat généré avec succès :
+                  </p>
+
+                  <a
+                    href={pdfUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 underline font-medium block mb-3"
+                  >
+                    Voir le PDF du mandat
+                  </a>
+
+                  {signingLink && (
+                    <a
+                      href={signingLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block bg-[#8B1538] hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-lg shadow"
+                    >
+                      SIGNER AVEC DOCUSIGN
+                    </a>
+                  )}
+                </div>
+              )}
             </form>
           </div>
 
           {/* PDF VIEWER */}
-          <div className="w-full lg:w-1/2 bg-white mt-20 border-t lg:border-t-0 lg:border-l">
-            <div className="relative h-[700px] lg:h-full">
+          <div className="relative w-full lg:w-1/2 mt-20 border lg:border-l">
+            <div className="relative w-full aspect-[210/297]">
+              {" "}
+              {/* ratio A4 */}
               {/* PDF */}
-              <div className="h-full">
-                <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js">
-                  <Viewer fileUrl="https://nrcdumqfyl1z2bwl.public.blob.vercel-storage.com/Mandat0503.pdf" />
-                </Worker>
-              </div>
-
+              <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js">
+                <Viewer fileUrl="https://nrcdumqfyl1z2bwl.public.blob.vercel-storage.com/Mandat0503.pdf" />
+              </Worker>
               {/* OVERLAY FIELDS */}
               <div className="absolute inset-0 pointer-events-none">
                 {/* Nom */}
@@ -376,7 +521,7 @@ function Mandat() {
                   name="nom"
                   className="
     absolute 
-    bg-transparent 
+     
     border 
     bg-red-500/20
     border-[#8B1538]/40
@@ -405,7 +550,7 @@ function Mandat() {
                   name="rue"
                   className="
     absolute 
-    bg-transparent 
+     
     border 
     bg-red-500/20
     focus:border-[#8B1538]
@@ -431,7 +576,7 @@ function Mandat() {
                   name="code_postal"
                   className="
     absolute 
-    bg-transparent 
+     
     border 
     bg-red-500/20
     focus:border-[#8B1538]
@@ -457,7 +602,7 @@ function Mandat() {
                   name="pays"
                   className="
     absolute 
-    bg-transparent 
+     
     border 
     bg-red-500/20
     focus:border-[#8B1538]
@@ -483,7 +628,7 @@ function Mandat() {
                   name="rib"
                   className="
     absolute 
-    bg-transparent 
+     
     border 
     bg-red-500/20
     focus:border-[#8B1538]
@@ -496,7 +641,7 @@ function Mandat() {
     duration-200
   "
                   style={{
-                    top: "33.2%",
+                    top: "33.6%",
                     left: "33%",
                     width: "50%",
                   }}
@@ -509,7 +654,7 @@ function Mandat() {
                   name="rib"
                   className="
     absolute 
-    bg-transparent 
+     
     border 
     bg-red-500/20
     focus:border-[#8B1538]
@@ -522,7 +667,7 @@ function Mandat() {
     duration-200
   "
                   style={{
-                    top: "35.2%",
+                    top: "35.5%",
                     left: "33%",
                     width: "50%",
                   }}
@@ -534,7 +679,7 @@ function Mandat() {
                   name="dateSignature"
                   className="
     absolute 
-    bg-transparent 
+     
     border 
     bg-red-500/20
     focus:border-[#8B1538]
@@ -560,7 +705,7 @@ function Mandat() {
                   name="lieu"
                   className="
     absolute 
-    bg-transparent 
+     
     border 
     bg-red-500/20
     focus:border-[#8B1538]
