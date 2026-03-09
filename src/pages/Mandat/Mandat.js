@@ -14,7 +14,6 @@ import {
   FileSignature,
   PenLine,
   Loader2,
-  Mail,
 } from "lucide-react";
 
 function Mandat() {
@@ -63,6 +62,7 @@ function Mandat() {
         setFormData((prev) => ({
           ...prev,
           nom: `${data.prenom} ${data.nom}`,
+          email: data.email, // si tu as l'email client remplace ici
         }));
       } catch (error) {
         console.error("Erreur fetch document:", error);
@@ -147,6 +147,15 @@ function Mandat() {
     }));
   };
 
+  const formatDateFR = (date) => {
+    const d = new Date(date);
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = d.getFullYear();
+
+    return `${day}/${month}/${year}`;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -171,7 +180,10 @@ function Mandat() {
       });
 
       // 3️⃣ Remplir les variables avec formData
-      doc.render(formData);
+      doc.render({
+        ...formData,
+        dateSignature: formatDateFR(formData.dateSignature),
+      });
 
       // 4️⃣ Générer le Word rempli
       const output = doc.getZip().generate({ type: "blob" });
@@ -263,7 +275,13 @@ function Mandat() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-200 p-4 lg:p-10">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-200 p-4 lg:p-10 relative">
+      {/* Logo */}
+      <img
+        src="https://nrcdumqfyl1z2bwl.public.blob.vercel-storage.com/4dd247098_LogoAlfa-PNG-SansCartouche.png"
+        alt="Logo Alfa"
+        className="absolute top-[5%] left-[4%] w-28 h-auto"
+      />
       <div className="max-w-7xl mx-auto bg-white shadow-2xl rounded-3xl overflow-hidden">
         <div className="flex flex-col lg:flex-row h-full">
           {/* FORMULAIRE */}
@@ -279,7 +297,7 @@ function Mandat() {
               {/* Nom */}
               <div>
                 <label className="block text-sm font-semibold text-slate-600 mb-2">
-                  Nom complet
+                  Nom complet ( {formData.email} )
                 </label>
                 <div className="flex items-center border rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-[#8B1538]">
                   <User className="text-slate-400 mr-2" size={18} />
@@ -293,19 +311,6 @@ function Mandat() {
                     placeholder="Votre nom complet"
                   />
                 </div>
-              </div>
-
-              <div className="flex items-center border rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-[#8B1538]">
-                <Mail className="text-slate-400 mr-2" size={18} />
-                <input
-                  type="text"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  required
-                  className="w-full outline-none "
-                  placeholder="Email pour envoi du mandat signé"
-                />
               </div>
 
               {/* Adresse */}
@@ -365,10 +370,6 @@ function Mandat() {
                 </label>
                 {/* Document RIB */}
                 <div>
-                  <label className="block text-sm font-semibold text-slate-600 mb-2">
-                    Document RIB ( PDF ou Image )
-                  </label>
-
                   <div className="flex items-center gap-3 mb-4">
                     {/* Input file */}
                     <div className=" m-0 flex items-center border rounded-xl px-3 py-2 flex-1 focus-within:ring-2 focus-within:ring-[#8B1538] transition-all duration-200">
@@ -394,19 +395,7 @@ function Mandat() {
                     {ribMessage}
                   </p>
                 )}
-                <div className="flex items-center  mb-4 border rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-[#8B1538]">
-                  <CreditCard className="text-slate-400 mr-2" size={18} />
-                  <input
-                    type="text"
-                    name="bic"
-                    value={formData.bic}
-                    onChange={handleChange}
-                    required
-                    className="w-full outline-none "
-                    placeholder="Code BIC"
-                  />
-                </div>
-                <div className="flex items-center w-full">
+                <div className="flex items-center w-full mb-4">
                   <p className="w-1/6 text-slate-400">IBAN : </p>
                   <div className="w-full flex items-center border rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-[#8B1538]">
                     <CreditCard className="text-slate-400 mr-2" size={18} />
@@ -418,6 +407,21 @@ function Mandat() {
                       required
                       className="w-full outline-none "
                       placeholder="Votre RIB"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center w-full">
+                  <p className="w-1/6 text-slate-400">BIC : </p>
+                  <div className="w-full flex items-center border rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-[#8B1538]">
+                    <CreditCard className="text-slate-400 mr-2" size={18} />
+                    <input
+                      type="text"
+                      name="bic"
+                      value={formData.bic}
+                      onChange={handleChange}
+                      required
+                      className="w-full outline-none "
+                      placeholder="Code BIC"
                     />
                   </div>
                 </div>
@@ -472,6 +476,7 @@ function Mandat() {
                 )}
                 {signing ? "Envoi..." : "Signer le Mandat"}
               </button>
+              {/* {pdfUrl && ( */}
               {pdfUrl && signingLink && (
                 <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-xl">
                   <p className="text-sm text-green-700 mb-2">
@@ -623,7 +628,7 @@ function Mandat() {
 
                 <input
                   type="text"
-                  value={formData.bic}
+                  value={formData.rib}
                   onChange={handleChange}
                   name="rib"
                   className="
@@ -649,9 +654,9 @@ function Mandat() {
 
                 <input
                   type="text"
-                  value={formData.rib}
+                  value={formData.bic}
                   onChange={handleChange}
-                  name="rib"
+                  name="bic"
                   className="
     absolute 
      
@@ -675,7 +680,7 @@ function Mandat() {
 
                 <input
                   type="text"
-                  value={formData.dateSignature}
+                  value={formatDateFR(formData.dateSignature)}
                   name="dateSignature"
                   className="
     absolute 
