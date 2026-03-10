@@ -280,7 +280,7 @@ function Mandat() {
       <img
         src="https://nrcdumqfyl1z2bwl.public.blob.vercel-storage.com/4dd247098_LogoAlfa-PNG-SansCartouche.png"
         alt="Logo Alfa"
-        className="absolute top-[5%] left-[4%] w-28 h-auto"
+        className="hidden lg:block absolute top-[5%] left-[4%] w-28 h-auto"
       />
       <div className="max-w-7xl mx-auto bg-white shadow-2xl rounded-3xl overflow-hidden">
         <div className="flex flex-col lg:flex-row h-full">
@@ -509,7 +509,7 @@ function Mandat() {
 
           {/* PDF VIEWER */}
           <div className="relative w-full lg:w-1/2 mt-20 border lg:border-l">
-            <div className="relative w-full aspect-[210/297]">
+            <div className="relative w-full lg:aspect-[210/297]">
               {" "}
               {/* ratio A4 */}
               {/* PDF */}
