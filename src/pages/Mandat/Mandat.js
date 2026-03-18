@@ -513,7 +513,7 @@ function Mandat() {
             </div>
 
             {/* PDF VIEWER */}
-            <div className="relative w-full lg:w-1/2 mt-20 border lg:border-l">
+            <div className="relative w-full lg:w-1/2 mt-2 border lg:border-l">
               <div className="relative w-full lg:aspect-[210/297]">
                 {" "}
                 {/* ratio A4 */}
@@ -537,7 +537,7 @@ function Mandat() {
     border-[#8B1538]/40
     focus:border-[#8B1538]
     focus:outline-none
-    text-[0.5rem] 
+    text-[0.2rem] sm:text-[0.5rem]   
     font-bold
     text-slate-800
     pointer-events-auto
@@ -546,7 +546,7 @@ function Mandat() {
 
   "
                     style={{
-                      top: "21%",
+                      top: window.innerWidth < 640 ? "27%" : "21%", // mobile <640px
                       left: "33%",
                       width: "50%",
                     }}
@@ -565,7 +565,7 @@ function Mandat() {
     bg-red-500/20
     focus:border-[#8B1538]
     focus:outline-none
-    text-[0.5rem] 
+    text-[0.2rem] sm:text-[0.5rem]   
     font-bold
     text-slate-800
     pointer-events-auto
@@ -573,7 +573,7 @@ function Mandat() {
     duration-200
   "
                     style={{
-                      top: "23.5%",
+                      top: window.innerWidth < 640 ? "30%" : "23.5%", // mobile <640px
                       left: "33%",
                       width: "50%",
                     }}
@@ -591,7 +591,7 @@ function Mandat() {
     bg-red-500/20
     focus:border-[#8B1538]
     focus:outline-none
-    text-[0.5rem] 
+    text-[0.2rem] sm:text-[0.5rem]   
     font-bold
     text-slate-800
     pointer-events-auto
@@ -599,7 +599,7 @@ function Mandat() {
     duration-200
   "
                     style={{
-                      top: "26%",
+                      top: window.innerWidth < 640 ? "33.5%" : "26%", // mobile <640px
                       left: "33%",
                       width: "50%",
                     }}
@@ -617,7 +617,7 @@ function Mandat() {
     bg-red-500/20
     focus:border-[#8B1538]
     focus:outline-none
-    text-[0.5rem] 
+    text-[0.2rem] sm:text-[0.5rem]     
     font-bold
     text-slate-800
     pointer-events-auto
@@ -625,7 +625,7 @@ function Mandat() {
     duration-200
   "
                     style={{
-                      top: "30%",
+                      top: window.innerWidth < 640 ? "38.5%" : "30%", // mobile <640px
                       left: "33%",
                       width: "50%",
                     }}
@@ -643,7 +643,7 @@ function Mandat() {
     bg-red-500/20
     focus:border-[#8B1538]
     focus:outline-none
-    text-[0.5rem] 
+    text-[0.2rem] sm:text-[0.5rem]     
     font-bold
     text-slate-800
     pointer-events-auto
@@ -651,7 +651,7 @@ function Mandat() {
     duration-200
   "
                     style={{
-                      top: "33.6%",
+                      top: window.innerWidth < 640 ? "43%" : "33.6%", // mobile <640px
                       left: "33%",
                       width: "50%",
                     }}
@@ -669,7 +669,7 @@ function Mandat() {
     bg-red-500/20
     focus:border-[#8B1538]
     focus:outline-none
-    text-[0.5rem] 
+    text-[0.2rem] sm:text-[0.5rem]     
     font-bold
     text-slate-800
     pointer-events-auto
@@ -677,7 +677,7 @@ function Mandat() {
     duration-200
   "
                     style={{
-                      top: "35.5%",
+                      top: window.innerWidth < 640 ? "45%" : "35.5%", // mobile <640px
                       left: "33%",
                       width: "50%",
                     }}
@@ -694,7 +694,7 @@ function Mandat() {
     bg-red-500/20
     focus:border-[#8B1538]
     focus:outline-none
-    text-[0.5rem] 
+    text-[0.2rem] sm:text-[0.5rem]     
     font-bold
     text-slate-800
     pointer-events-auto
@@ -702,7 +702,7 @@ function Mandat() {
     duration-200
   "
                     style={{
-                      top: "54.6%",
+                      top: window.innerWidth < 640 ? "69%" : "54.6%", // mobile <640px
                       left: "33%",
                       width: "50%",
                     }}
@@ -715,20 +715,19 @@ function Mandat() {
                     name="lieu"
                     className="
     absolute 
-     
     border 
     bg-red-500/20
     focus:border-[#8B1538]
     focus:outline-none
-    text-[0.5rem] 
     font-bold
     text-slate-800
     pointer-events-auto
     transition-all
     duration-200
+    text-[0.2rem] sm:text-[0.5rem]     
   "
                     style={{
-                      top: "56.5%",
+                      top: window.innerWidth < 640 ? "71.5%" : "56.5%", // mobile <640px
                       left: "33%",
                       width: "50%",
                     }}
