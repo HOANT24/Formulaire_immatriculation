@@ -23,7 +23,6 @@ function Mandat() {
   const [scanning, setScanning] = useState(false);
   const [isPdf, setIsPdf] = useState(false);
   const [ribMessage, setRibMessage] = useState("");
-  const [pdfUrl, setPdfUrl] = useState(null);
   const now = new Date();
   const hours = String(now.getHours()).padStart(2, "0"); // HH
   const minutes = String(now.getMinutes()).padStart(2, "0"); // mm
@@ -243,8 +242,6 @@ function Mandat() {
       // 7️⃣ Récupération de l'URL du PDF
       const { pdfUrl } = await uploadResponse.json();
 
-      setPdfUrl(pdfUrl);
-
       // 8️⃣ Envoi à l'API DOCUSIGN
       const payload = {
         pdfUrl: pdfUrl,
@@ -290,7 +287,12 @@ function Mandat() {
       const signData = await signResponse.json();
 
       if (signData.signingLinks && signData.signingLinks.length > 0) {
-        setSigningLink(signData.signingLinks[0].url);
+        const url = signData.signingLinks[0].url;
+
+        setSigningLink(url);
+
+        // redirection immédiate
+        window.location.href = url;
       }
     } catch (error) {
       console.error("Erreur génération mandat:", error);
@@ -513,36 +515,9 @@ function Mandat() {
                   ) : (
                     <FileSignature size={18} />
                   )}
-                  {signing ? "Envoi..." : "Signer le Mandat"}
+                  {signing ? "Création du Mandat..." : "Signer le Mandat"}
                 </button>
                 {/* {pdfUrl && ( */}
-                {pdfUrl && signingLink && (
-                  <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-xl">
-                    <p className="text-sm text-green-700 mb-2">
-                      Mandat généré avec succès :
-                    </p>
-
-                    <a
-                      href={pdfUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 underline font-medium block mb-3"
-                    >
-                      Voir le PDF du mandat
-                    </a>
-
-                    {signingLink && (
-                      <a
-                        href={signingLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-block bg-[#8B1538] hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-lg shadow"
-                      >
-                        SIGNER AVEC DOCUSIGN
-                      </a>
-                    )}
-                  </div>
-                )}
               </form>
             </div>
 
