@@ -27,7 +27,7 @@ function Mandat() {
   const hours = String(now.getHours()).padStart(2, "0"); // HH
   const minutes = String(now.getMinutes()).padStart(2, "0"); // mm
   const currentTime = `${hours}:${minutes}`; // HH:mm
-  const [signingLink, setSigningLink] = useState(null);
+  const [setSigningLink] = useState(null);
 
   const [formData, setFormData] = useState({
     rum: "",
@@ -236,7 +236,7 @@ function Mandat() {
       );
 
       if (!uploadResponse.ok) {
-        throw new Error("Erreur lors de l'envoi du fichier");
+        throw new Error("Erreur lors de l'envoi du fichier ");
       }
 
       // 7️⃣ Récupération de l'URL du PDF
