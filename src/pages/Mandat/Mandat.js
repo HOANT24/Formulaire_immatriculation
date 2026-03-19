@@ -31,7 +31,7 @@ function Mandat() {
   const [signingLink, setSigningLink] = useState(null);
 
   const [formData, setFormData] = useState({
-    rum: "RUM123456",
+    rum: "",
     nom: "",
     email: "",
     rue: "",
@@ -49,6 +49,40 @@ function Mandat() {
 
   const [loading, setLoading] = useState(true); // loading fetch API
   const [signing, setSigning] = useState(false); // loading submit
+
+  const generateDate = () => {
+    const today = new Date();
+
+    const day = String(today.getDate()).padStart(2, "0");
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const year = today.getFullYear();
+
+    return `${day}${month}${year}`;
+  };
+
+  useEffect(() => {
+    const generateRum = async () => {
+      try {
+        const response = await fetch(
+          "https://backend-myalfa.vercel.app/api/mandats/last"
+        );
+        const data = await response.json();
+
+        const nextNumber = String(data.nextNumber).padStart(6, "0");
+
+        const rumGenerated = `REF${generateDate()}${nextNumber}`;
+
+        setFormData((prev) => ({
+          ...prev,
+          rum: rumGenerated,
+        }));
+      } catch (error) {
+        console.error("Erreur génération RUM :", error);
+      }
+    };
+
+    generateRum();
+  }, []);
 
   useEffect(() => {
     const fetchDocument = async () => {
