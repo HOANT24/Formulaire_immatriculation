@@ -126,7 +126,10 @@ function Mandat() {
 
       const data = await response.json();
 
-      if (data.success && data.rib && data.bic) {
+      const ribValide = data.rib && data.rib.trim() !== "";
+      const bicValide = data.bic && data.bic.trim() !== "";
+
+      if (ribValide && bicValide) {
         setFormData((prev) => ({
           ...prev,
           rib: data.rib,
@@ -136,9 +139,17 @@ function Mandat() {
         setRibMessage(
           "Veuillez vérifier les informations récupérées avant de signer"
         );
-      } else {
+      } else if (!ribValide && !bicValide) {
         setRibMessage(
           "Les informations n'ont pu être récupérées.\nMerci de saisir ci-dessous l'IBAN et le code BIC."
+        );
+      } else if (!ribValide) {
+        setRibMessage(
+          "L'IBAN n'a pas pu être récupéré.\nMerci de le saisir ci-dessous."
+        );
+      } else if (!bicValide) {
+        setRibMessage(
+          "Le code BIC n'a pas pu être récupéré.\nMerci de le saisir ci-dessous."
         );
       }
     } catch (error) {
