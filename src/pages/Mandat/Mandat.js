@@ -95,7 +95,7 @@ function Mandat() {
         // On remplit uniquement le nom complet pour l'instant
         setFormData((prev) => ({
           ...prev,
-          nom: `${data.prenom} ${data.nom}`,
+          nom: `${data.emailSubject.split(" - ")[0] || ""}`, // extraction du nom depuis emailSubject
           email: data.email, // si tu as l'email client remplace ici
         }));
       } catch (error) {
