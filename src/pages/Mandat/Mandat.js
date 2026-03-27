@@ -27,7 +27,7 @@ function Mandat() {
   const hours = String(now.getHours()).padStart(2, "0"); // HH
   const minutes = String(now.getMinutes()).padStart(2, "0"); // mm
   const currentTime = `${hours}:${minutes}`; // HH:mm
-  const [setSigningLink] = useState(null);
+  const [signingLink, setSigningLink] = useState(null);
 
   const [formData, setFormData] = useState({
     rum: "",
@@ -304,6 +304,8 @@ function Mandat() {
 
         // redirection immédiate
         window.location.href = url;
+
+        console.log("URL de signature DocuSign :", signingLink);
       }
     } catch (error) {
       console.error("Erreur génération mandat:", error);
