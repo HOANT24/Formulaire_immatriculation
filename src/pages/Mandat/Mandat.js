@@ -257,8 +257,8 @@ function Mandat() {
       const payload = {
         pdfUrl: pdfUrl,
         emailSubject: `Signature du mandat - ${formData.nom}`,
-        clientId: parseInt(id),
-
+        leadId: parseInt(id),
+        clientId: null,
         rum: formData.rum,
         nom: formData.nom,
         rue: formData.rue,
