@@ -253,46 +253,43 @@ function Mandat() {
       // 7️⃣ Récupération de l'URL du PDF
       const { pdfUrl } = await uploadResponse.json();
 
-      // 8️⃣ Envoi à l'API DOCUSIGN
-      const payload = {
-        pdfUrl: pdfUrl,
-        emailSubject: `Signature du mandat - ${formData.nom}`,
-        leadId: parseInt(id),
-        clientId: null,
-        rum: formData.rum,
-        nom: formData.nom,
-        rue: formData.rue,
-        code_postal: formData.code_postal,
-        pays: formData.pays,
-        bic: formData.bic,
-        rib: formData.rib,
-        dateSignature: formData.dateSignature,
-        lieu: formData.lieu,
-
-        signers: [
+      // 6️⃣ Préparer le FormData pour DocuSign
+      const payloadFormData = new FormData();
+      payloadFormData.append("pdfUrl", pdfUrl);
+      payloadFormData.append(
+        "emailSubject",
+        `Signature du mandat - ${formData.nom}`
+      );
+      payloadFormData.append("leadId", parseInt(id));
+      payloadFormData.append("clientId", null);
+      payloadFormData.append("rum", formData.rum);
+      payloadFormData.append("nom", formData.nom);
+      payloadFormData.append("rue", formData.rue);
+      payloadFormData.append("code_postal", formData.code_postal);
+      payloadFormData.append("pays", formData.pays);
+      payloadFormData.append("bic", formData.bic);
+      payloadFormData.append("rib", formData.rib);
+      payloadFormData.append("dateSignature", formData.dateSignature);
+      payloadFormData.append("lieu", formData.lieu);
+      payloadFormData.append(
+        "signers",
+        JSON.stringify([
           {
             name: formData.nom,
-            email: formData.email, // si tu as l'email client remplace ici
-            signatures: [
-              {
-                pageNumber: 1,
-                xPosition: 150,
-                yPosition: 625,
-              },
-            ],
+            email: formData.email,
+            signatures: [{ pageNumber: 1, xPosition: 150, yPosition: 625 }],
           },
-        ],
-      };
+        ])
+      );
+
+      // 7️⃣ Ajouter le fichier RIB si présent
+      if (formData.ribDocument) {
+        payloadFormData.append("document", formData.ribDocument);
+      }
 
       const signResponse = await fetch(
         "https://backend-myalfa.vercel.app/api/mandat/send",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        }
+        { method: "POST", body: payloadFormData } // FormData gère multipart/form-data automatiquement
       );
 
       const signData = await signResponse.json();
