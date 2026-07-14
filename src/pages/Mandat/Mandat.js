@@ -17,6 +17,21 @@ import {
   Loader2,
 } from "lucide-react";
 
+// Modèles de mandat par cabinet créancier — tout est silencieux pour
+// l'utilisateur : seul le PDF affiché (et le Word généré) porte l'identité
+// du cabinet, aucune mention dans le formulaire lui-même.
+const MANDAT_TEMPLATES = {
+  "SAINT-PIERRE": {
+    pdf: "https://nrcdumqfyl1z2bwl.public.blob.vercel-storage.com/Mandat%20-%20SAINT-PIERRE.pdf",
+    docx: "/Mandat - SAINT-PIERRE.docx",
+  },
+  // LE TAMPON + mandats sans cabinet (historique)
+  default: {
+    pdf: "https://nrcdumqfyl1z2bwl.public.blob.vercel-storage.com/Mandat0503.pdf",
+    docx: "/Mandat.docx",
+  },
+};
+
 function Mandat() {
   const { id } = useParams();
   const today = new Date().toISOString().split("T")[0];
@@ -42,12 +57,19 @@ function Mandat() {
     dateSignature: today,
     heureSignature: currentTime,
     lieu: "",
+    // Cabinet juridique créancier ("LE TAMPON" / "SAINT-PIERRE"),
+    // hérité de la LM signée (Envelope.cabinet)
+    cabinet: "",
   });
 
   console.log("pdf", isPdf);
 
   const [loading, setLoading] = useState(true); // loading fetch API
   const [signing, setSigning] = useState(false); // loading submit
+
+  // Templates (PDF affiché + Word généré) du cabinet hérité de la LM
+  const mandatTemplate =
+    MANDAT_TEMPLATES[formData.cabinet] || MANDAT_TEMPLATES.default;
 
   const generateDate = () => {
     const today = new Date();
@@ -60,10 +82,14 @@ function Mandat() {
   };
 
   useEffect(() => {
-    const generateRum = async () => {
+    // La séquence RUM dépend du cabinet porteur de la LM (une séquence
+    // autonome par cabinet) — on charge donc l'enveloppe d'abord.
+    const generateRum = async (cabinet) => {
       try {
         const response = await fetch(
-          "https://backend-myalfa.vercel.app/api/mandats/last"
+          `https://backend-myalfa.vercel.app/api/mandats/last${
+            cabinet ? `?cabinet=${encodeURIComponent(cabinet)}` : ""
+          }`,
         );
         const data = await response.json();
 
@@ -80,24 +106,22 @@ function Mandat() {
       }
     };
 
-    generateRum();
-  }, []);
-
-  useEffect(() => {
     const fetchDocument = async () => {
       try {
         setLoading(true);
         const response = await fetch(
-          `https://backend-myalfa.vercel.app/api/document/${id}`
+          `https://backend-myalfa.vercel.app/api/document/${id}`,
         );
         const data = await response.json();
 
-        // On remplit uniquement le nom complet pour l'instant
         setFormData((prev) => ({
           ...prev,
           nom: `${data.emailSubject.split(" - ")[0] || ""}`, // extraction du nom depuis emailSubject
           email: data.email, // si tu as l'email client remplace ici
+          cabinet: data.cabinet || "",
         }));
+
+        await generateRum(data.cabinet);
       } catch (error) {
         console.error("Erreur fetch document:", error);
       } finally {
@@ -121,7 +145,7 @@ function Mandat() {
         {
           method: "POST",
           body: formDataUpload,
-        }
+        },
       );
 
       const data = await response.json();
@@ -137,26 +161,26 @@ function Mandat() {
         }));
 
         setRibMessage(
-          "Veuillez vérifier les informations récupérées avant de signer"
+          "Veuillez vérifier les informations récupérées avant de signer",
         );
       } else if (!ribValide && !bicValide) {
         setRibMessage(
-          "Les informations n'ont pu être récupérées.\nMerci de saisir ci-dessous l'IBAN et le code BIC."
+          "Les informations n'ont pu être récupérées.\nMerci de saisir ci-dessous l'IBAN et le code BIC.",
         );
       } else if (!ribValide) {
         setRibMessage(
-          "L'IBAN n'a pas pu être récupéré.\nMerci de le saisir ci-dessous."
+          "L'IBAN n'a pas pu être récupéré.\nMerci de le saisir ci-dessous.",
         );
       } else if (!bicValide) {
         setRibMessage(
-          "Le code BIC n'a pas pu être récupéré.\nMerci de le saisir ci-dessous."
+          "Le code BIC n'a pas pu être récupéré.\nMerci de le saisir ci-dessous.",
         );
       }
     } catch (error) {
       console.error("Erreur scan RIB:", error);
 
       setRibMessage(
-        "Les informations n'ont pu être récupérées.\nMerci de saisir ci-dessous l'IBAN et le code BIC."
+        "Les informations n'ont pu être récupérées.\nMerci de saisir ci-dessous l'IBAN et le code BIC.",
       );
     } finally {
       setScanning(false);
@@ -207,8 +231,8 @@ function Mandat() {
     try {
       setSigning(true);
 
-      // 1️⃣ Charger le template Word depuis /public
-      const response = await fetch("/Mandat.docx");
+      // 1️⃣ Charger le template Word depuis /public (selon le cabinet)
+      const response = await fetch(encodeURI(mandatTemplate.docx));
 
       if (!response.ok) {
         throw new Error("Erreur lors du chargement du fichier Word");
@@ -233,9 +257,9 @@ function Mandat() {
       // 4️⃣ Générer le Word rempli
       const output = doc.getZip().generate({ type: "blob" });
 
-      // 5️⃣ Préparer l'envoi à l'API
+      // 5️⃣ Préparer l'envoi à l'API (nom de fichier selon le cabinet)
       const formDataToSend = new FormData();
-      formDataToSend.append("file", output, "Mandat.docx");
+      formDataToSend.append("file", output, mandatTemplate.docx.slice(1));
 
       // 6️⃣ Envoyer à l'API pour conversion PDF
       const uploadResponse = await fetch(
@@ -243,7 +267,7 @@ function Mandat() {
         {
           method: "POST",
           body: formDataToSend,
-        }
+        },
       );
 
       if (!uploadResponse.ok) {
@@ -258,7 +282,7 @@ function Mandat() {
       payloadFormData.append("pdfUrl", pdfUrl);
       payloadFormData.append(
         "emailSubject",
-        `Signature du mandat - ${formData.nom}`
+        `Signature du mandat - ${formData.nom}`,
       );
       payloadFormData.append("leadId", parseInt(id));
       payloadFormData.append("clientId", null);
@@ -271,6 +295,7 @@ function Mandat() {
       payloadFormData.append("rib", formData.rib);
       payloadFormData.append("dateSignature", formData.dateSignature);
       payloadFormData.append("lieu", formData.lieu);
+      payloadFormData.append("cabinet", formData.cabinet || "");
       payloadFormData.append(
         "signers",
         JSON.stringify([
@@ -279,7 +304,7 @@ function Mandat() {
             email: formData.email,
             signatures: [{ pageNumber: 1, xPosition: 150, yPosition: 625 }],
           },
-        ])
+        ]),
       );
 
       // 7️⃣ Ajouter le fichier RIB si présent
@@ -289,7 +314,7 @@ function Mandat() {
 
       const signResponse = await fetch(
         "https://backend-myalfa.vercel.app/api/mandat/send",
-        { method: "POST", body: payloadFormData } // FormData gère multipart/form-data automatiquement
+        { method: "POST", body: payloadFormData }, // FormData gère multipart/form-data automatiquement
       );
 
       const signData = await signResponse.json();
@@ -538,7 +563,7 @@ function Mandat() {
                 {/* ratio A4 */}
                 {/* PDF */}
                 <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js">
-                  <Viewer fileUrl="https://nrcdumqfyl1z2bwl.public.blob.vercel-storage.com/Mandat0503.pdf" />
+                  <Viewer fileUrl={mandatTemplate.pdf} />
                 </Worker>
                 {/* OVERLAY FIELDS */}
                 <div className="absolute inset-0 pointer-events-none">
