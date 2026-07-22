@@ -22,12 +22,12 @@ import {
 // du cabinet, aucune mention dans le formulaire lui-même.
 const MANDAT_TEMPLATES = {
   "SAINT-PIERRE": {
-    pdf: "https://nrcdumqfyl1z2bwl.public.blob.vercel-storage.com/Mandat%20-%20SAINT-PIERRE.pdf",
+    pdf: "https://nrcdumqfyl1z2bwl.public.blob.vercel-storage.com/visuel%20mandat%20pdf/Mandat%20-%20SAINT-PIERRE%20-%20visuel.pdf",
     docx: "/Mandat - SAINT-PIERRE.docx",
   },
   // LE TAMPON + mandats sans cabinet (historique)
   default: {
-    pdf: "https://nrcdumqfyl1z2bwl.public.blob.vercel-storage.com/Mandat0503.pdf",
+    pdf: "https://nrcdumqfyl1z2bwl.public.blob.vercel-storage.com/visuel%20mandat%20pdf/Mandat%20-%20visuel.pdf",
     docx: "/Mandat.docx",
   },
 };
@@ -49,6 +49,7 @@ function Mandat() {
     nom: "",
     email: "",
     rue: "",
+    adresse_complement: "",
     code_postal: "",
     pays: "",
     bic: "",
@@ -289,6 +290,7 @@ function Mandat() {
       payloadFormData.append("rum", formData.rum);
       payloadFormData.append("nom", formData.nom);
       payloadFormData.append("rue", formData.rue);
+      payloadFormData.append("adresse_complement", formData.adresse_complement);
       payloadFormData.append("code_postal", formData.code_postal);
       payloadFormData.append("pays", formData.pays);
       payloadFormData.append("bic", formData.bic);
@@ -404,6 +406,17 @@ function Mandat() {
                       required
                       className="w-full outline-none "
                       placeholder="Numéro de rue"
+                    />
+                  </div>
+                  <div className=" mb-4 flex items-center border rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-[#8B1538]">
+                    <MapPin className="text-slate-400 mr-2" size={18} />
+                    <input
+                      type="text"
+                      name="adresse_complement"
+                      value={formData.adresse_complement}
+                      onChange={handleChange}
+                      className="w-full outline-none "
+                      placeholder="Complément d'adresse (bâtiment, étage...)"
                     />
                   </div>
                   <div className="flex items-center border rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-[#8B1538]">
@@ -623,19 +636,21 @@ function Mandat() {
                     }}
                   />
 
+                  {/* Complément d'adresse — nouvelle ligne ajoutée dans le
+                      visuel du mandat pour les adresses trop longues */}
                   <input
                     type="text"
-                    value={formData.code_postal}
+                    value={formData.adresse_complement}
                     onChange={handleChange}
-                    name="code_postal"
+                    name="adresse_complement"
                     className="
-    absolute 
-     
-    border 
+    absolute
+
+    border
     bg-red-500/20
     focus:border-[#8B1538]
     focus:outline-none
-    text-[0.2rem] sm:text-[0.5rem]   
+    text-[0.2rem] sm:text-[0.5rem]
     font-bold
     text-slate-800
     pointer-events-auto
@@ -643,7 +658,33 @@ function Mandat() {
     duration-200
   "
                     style={{
-                      top: window.innerWidth < 640 ? "33.5%" : "26%", // mobile <640px
+                      top: window.innerWidth < 640 ? "33%" : "25.7%", // mobile <640px
+                      left: "33%",
+                      width: "50%",
+                    }}
+                  />
+
+                  <input
+                    type="text"
+                    value={formData.code_postal}
+                    onChange={handleChange}
+                    name="code_postal"
+                    className="
+    absolute
+
+    border
+    bg-red-500/20
+    focus:border-[#8B1538]
+    focus:outline-none
+    text-[0.2rem] sm:text-[0.5rem]
+    font-bold
+    text-slate-800
+    pointer-events-auto
+    transition-all
+    duration-200
+  "
+                    style={{
+                      top: window.innerWidth < 640 ? "35%" : "27.2%", // mobile <640px
                       left: "33%",
                       width: "50%",
                     }}
