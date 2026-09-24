@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { uploadFileToBlob } from "../../utils/uploadFileToBlob";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
@@ -198,6 +199,7 @@ export default function SimplifiedForm({ onSubmit }) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
   const [loadingSubmit, setLoadingSubmit] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(null);
 
   const handleChange = (field, value, type = "text") => {
     let finalValue = value;
@@ -432,41 +434,37 @@ export default function SimplifiedForm({ onSubmit }) {
       );
 
       // -----------------------
-      // 3️⃣ Documents société
+      // 3️⃣ + 4️⃣ Documents société + dirigeants — upload direct navigateur
+      // → Blob (contourne la limite 4,5 Mo des Vercel Functions), avec une
+      // progression affichée sur le bouton (peut prendre du temps selon la
+      // taille du fichier).
       // -----------------------
-      if (formData.adressse)
-        formDataToSend.append("adressse", formData.adressse);
-
-      if (formData.avisImposition)
-        formDataToSend.append("avisImposition", formData.avisImposition);
-
-      if (formData.dernierAvisImposition)
-        formDataToSend.append(
-          "dernierAvisImposition",
-          formData.dernierAvisImposition
-        );
-
-      if (formData.pieceIdHebergeur)
-        formDataToSend.append("pieceIdHebergeur", formData.pieceIdHebergeur);
-
-      // -----------------------
-      // 4️⃣ Documents dirigeants
-      // -----------------------
+      const documentFields = {
+        adressse: formData.adressse,
+        avisImposition: formData.avisImposition,
+        dernierAvisImposition: formData.dernierAvisImposition,
+        pieceIdHebergeur: formData.pieceIdHebergeur,
+      };
       formData.associes?.forEach((associate) => {
         if (associate.dirigeant) {
-          if (associate.pieceId)
-            formDataToSend.append("pieceId", associate.pieceId);
-
-          if (associate.livretFamille)
-            formDataToSend.append("livretFamille", associate.livretFamille);
-
-          if (associate.carteSecurite)
-            formDataToSend.append("carteSecurite", associate.carteSecurite);
-
-          if (associate.adressePerso)
-            formDataToSend.append("adressePerso", associate.adressePerso);
+          if (associate.pieceId) documentFields.pieceId = associate.pieceId;
+          if (associate.livretFamille) documentFields.livretFamille = associate.livretFamille;
+          if (associate.carteSecurite) documentFields.carteSecurite = associate.carteSecurite;
+          if (associate.adressePerso) documentFields.adressePerso = associate.adressePerso;
         }
       });
+
+      const fileEntries = Object.entries(documentFields).filter(([, file]) => file);
+      for (const [field, file] of fileEntries) {
+        setUploadProgress(0);
+        const url = await uploadFileToBlob(
+          file,
+          "https://backend-myalfa.vercel.app/api/creation-sct/upload-token",
+          ({ percentage }) => setUploadProgress(Math.round(percentage))
+        );
+        formDataToSend.append(`${field}Url`, url);
+      }
+      setUploadProgress(null);
 
       const response = await fetch(
         `https://backend-myalfa.vercel.app/api/creation-sct/${id}`,
@@ -499,6 +497,7 @@ export default function SimplifiedForm({ onSubmit }) {
         submit: error.message || "Erreur serveur",
       }));
     } finally {
+      setUploadProgress(null);
       setLoadingSubmit(false);
     }
   };
@@ -1908,7 +1907,7 @@ export default function SimplifiedForm({ onSubmit }) {
           {loadingSubmit ? (
             <>
               <Loader2 className="w-6 h-6 animate-spin" />
-              <span>Envoi en cours...</span>
+              <span>{uploadProgress !== null ? `Envoi du document... ${uploadProgress}%` : "Envoi en cours..."}</span>
             </>
           ) : (
             <>

@@ -5,6 +5,7 @@ import "@react-pdf-viewer/core/lib/styles/index.css";
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 import { Helmet } from "react-helmet-async";
+import { uploadFileToBlob } from "../../utils/uploadFileToBlob";
 
 import {
   User,
@@ -32,52 +33,14 @@ const MANDAT_TEMPLATES = {
   },
 };
 
-const RIB_MAX_DIMENSION = 1600;
-const RIB_JPEG_QUALITY = 0.7;
-
-// Les Serverless Functions Vercel rejettent toute requête au-delà d'environ
-// 4,5 Mo (FUNCTION_PAYLOAD_TOO_LARGE) — le document RIB est le seul gros
-// contenu binaire envoyé à /api/mandat/send (pdfUrl n'est qu'une référence),
-// donc sa taille = quasiment toute la requête. Marge de sécurité sous la
-// limite réelle de la plateforme.
-const RIB_MAX_FILE_SIZE = 4 * 1024 * 1024; // 4 Mo
-const RIB_MAX_FILE_SIZE_LABEL = "4 Mo";
-
 function formatFileSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
-}
-
-// Une photo de RIB en PNG (format non compressé) peut facilement dépasser
-// cette limite — l'upload échoue alors avant même d'atteindre notre code
-// (rejeté par la plateforme, sans en-têtes CORS), ce que le navigateur
-// rapporte comme un "Failed to fetch" générique plutôt qu'une vraie erreur
-// 413. On redimensionne et recompresse en JPEG ici, côté client, avant
-// l'envoi — le serveur fait déjà la même chose (processFile dans
-// MandatSignController.js), mais trop tard si l'upload initial échoue.
-async function compressRibImage(file) {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, RIB_MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-
-  const blob = await new Promise((resolve) =>
-    canvas.toBlob(resolve, "image/jpeg", RIB_JPEG_QUALITY)
-  );
-  if (!blob) return file;
-
-  return new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), {
-    type: "image/jpeg",
-  });
 }
 
 function Mandat() {
   const { id } = useParams();
   const today = new Date().toISOString().split("T")[0];
   const [scanning, setScanning] = useState(false);
-  const [compressingRib, setCompressingRib] = useState(false);
   const [ribFileError, setRibFileError] = useState("");
   const ribFileInputRef = useRef(null);
   const [isPdf, setIsPdf] = useState(false);
@@ -182,14 +145,20 @@ function Mandat() {
       setScanning(true);
       setRibMessage("");
 
-      const formDataUpload = new FormData();
-      formDataUpload.append("ribDocument", file);
+      // Upload direct navigateur → Blob (contourne la limite 4,5 Mo) : le
+      // serveur retélécharge le fichier depuis Blob pour le parser (pas de
+      // stockage, juste une lecture).
+      const documentUrl = await uploadFileToBlob(
+        file,
+        "https://backend-myalfa.vercel.app/api/extract-rib/upload-token",
+      );
 
       const response = await fetch(
         "https://backend-myalfa.vercel.app/api/extract-rib",
         {
           method: "POST",
-          body: formDataUpload,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ documentUrl }),
         },
       );
 
@@ -232,8 +201,6 @@ function Mandat() {
     }
   };
 
-  // Retire le fichier RIB actuel (trop volumineux, même après compression) —
-  // le formulaire reste bloqué tant que ce n'est pas fait, voir isRibBlocked.
   const handleRemoveRibDocument = () => {
     setFormData((prev) => ({ ...prev, ribDocument: null }));
     setRibFileError("");
@@ -241,61 +208,21 @@ function Mandat() {
     if (ribFileInputRef.current) ribFileInputRef.current.value = "";
   };
 
+  // Upload direct navigateur → Blob (contourne la limite 4,5 Mo des Vercel
+  // Functions, 25/09/2026) : plus besoin de compresser/bloquer le fichier
+  // côté client pour rester sous cette limite.
   const handleChange = async (e) => {
     const { name, value, files } = e.target;
 
     if (name === "ribDocument" && files && files[0]) {
       const file = files[0];
       setRibFileError("");
+      setIsPdf(file.type === "application/pdf");
+      setFormData((prev) => ({ ...prev, ribDocument: file }));
 
       if (file.type === "application/pdf") {
-        setIsPdf(true);
-
-        // Un PDF ne peut pas être recompressé côté client — soit il passe
-        // sous la limite, soit l'utilisateur doit le remplacer/supprimer.
-        if (file.size > RIB_MAX_FILE_SIZE) {
-          setFormData((prev) => ({ ...prev, ribDocument: file }));
-          setRibFileError(
-            `Ce PDF fait ${formatFileSize(file.size)}, la limite est de ${RIB_MAX_FILE_SIZE_LABEL}. Compressez-le vous-même ou choisissez un autre fichier, ou supprimez-le ci-dessous.`,
-          );
-          return;
-        }
-
-        setFormData((prev) => ({ ...prev, ribDocument: file }));
-        // Scan automatique
         scanRibAutomatically(file);
-        return;
       }
-
-      setIsPdf(false);
-
-      // Redimensionne/recompresse les images (PNG notamment) avant de les
-      // stocker, pour ne jamais dépasser la limite de taille de requête du
-      // backend à l'envoi (voir compressRibImage ci-dessus).
-      setCompressingRib(true);
-      try {
-        const compressed = await compressRibImage(file);
-        if (compressed.size > RIB_MAX_FILE_SIZE) {
-          setFormData((prev) => ({ ...prev, ribDocument: compressed }));
-          setRibFileError(
-            `Cette image fait encore ${formatFileSize(compressed.size)} après compression, la limite est de ${RIB_MAX_FILE_SIZE_LABEL}. Compressez-la davantage vous-même ou choisissez une autre image, ou supprimez-la ci-dessous.`,
-          );
-          return;
-        }
-        setFormData((prev) => ({
-          ...prev,
-          ribDocument: compressed,
-        }));
-      } catch (error) {
-        console.error("Erreur compression image RIB :", error);
-        setFormData((prev) => ({
-          ...prev,
-          ribDocument: file,
-        }));
-      } finally {
-        setCompressingRib(false);
-      }
-
       return;
     }
 
@@ -397,9 +324,14 @@ function Mandat() {
         ]),
       );
 
-      // 7️⃣ Ajouter le fichier RIB si présent
+      // 7️⃣ Ajouter le fichier RIB si présent — upload direct navigateur →
+      // Blob (contourne la limite 4,5 Mo des Vercel Functions)
       if (formData.ribDocument) {
-        payloadFormData.append("document", formData.ribDocument);
+        const documentUrl = await uploadFileToBlob(
+          formData.ribDocument,
+          "https://backend-myalfa.vercel.app/api/mandat/upload-token",
+        );
+        payloadFormData.append("documentUrl", documentUrl);
       }
 
       const signResponse = await fetch(
@@ -561,17 +493,7 @@ function Mandat() {
                         />
                       </div>
                     </div>
-                    <p className="text-xs text-slate-400 mb-4">
-                      Taille maximale : {RIB_MAX_FILE_SIZE_LABEL} (les images
-                      sont automatiquement compressées).
-                    </p>
                   </div>
-                  {compressingRib && (
-                    <p className="text-sm text-slate-500 mt-2 flex items-center gap-2">
-                      <Loader2 className="animate-spin" size={16} />
-                      Compression de l'image...
-                    </p>
-                  )}
                   {ribFileError && (
                     <div className="text-sm mt-2 mb-2 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 space-y-2">
                       <p>{ribFileError}</p>
@@ -584,7 +506,7 @@ function Mandat() {
                       </button>
                     </div>
                   )}
-                  {!ribFileError && !compressingRib && formData.ribDocument && (
+                  {!ribFileError && formData.ribDocument && (
                     <p className="text-xs text-emerald-600 mt-2 mb-2">
                       Fichier prêt : {formData.ribDocument.name} (
                       {formatFileSize(formData.ribDocument.size)})
@@ -672,7 +594,7 @@ function Mandat() {
                 {/* Bouton */}
                 <button
                   type="submit"
-                  disabled={signing || compressingRib || Boolean(ribFileError)}
+                  disabled={signing || Boolean(ribFileError)}
                   className="w-full bg-[#8B1538] hover:bg-indigo-700 transition-all duration-300 text-white font-semibold py-3 rounded-xl shadow-lg hover:shadow-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {signing ? (
