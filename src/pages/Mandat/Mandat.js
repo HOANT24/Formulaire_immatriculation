@@ -301,7 +301,10 @@ function Mandat() {
         `Signature du mandat - ${formData.nom}`,
       );
       payloadFormData.append("leadId", parseInt(id));
-      payloadFormData.append("clientId", null);
+      // Pas de clientId ici : ce formulaire est signé par un prospect sans
+      // compte. Ne pas l'envoyer du tout (plutôt que `null`, que FormData
+      // sérialise en la chaîne "null" — Number("null") vaut NaN, ce qui
+      // ferait échouer l'écriture Prisma côté backend).
       payloadFormData.append("rum", formData.rum);
       payloadFormData.append("nom", formData.nom);
       payloadFormData.append("rue", formData.rue);
