@@ -45,6 +45,16 @@ function Mandat() {
   const ribFileInputRef = useRef(null);
   const [isPdf, setIsPdf] = useState(false);
   const [ribMessage, setRibMessage] = useState("");
+
+  // Overlay de confirmation du titulaire du RIB (affiché une fois le RIB
+  // importé et un nom saisi). Aucune trace côté backend : simple garde-fou.
+  const [showNomOverlay, setShowNomOverlay] = useState(false);
+  const [overlayEditing, setOverlayEditing] = useState(false);
+  const [overlayNom, setOverlayNom] = useState("");
+  const [ribScanOk, setRibScanOk] = useState(false);
+  const nomRef = useRef("");
+  // Invalide un scan en cours si le fichier est retiré/remplacé entre-temps.
+  const importIdRef = useRef(0);
   const now = new Date();
   const hours = String(now.getHours()).padStart(2, "0"); // HH
   const minutes = String(now.getMinutes()).padStart(2, "0"); // mm
@@ -69,6 +79,8 @@ function Mandat() {
     // hérité de la LM signée (Envelope.cabinet)
     cabinet: "",
   });
+
+  nomRef.current = formData.nom;
 
   console.log("pdf", isPdf);
 
@@ -140,7 +152,26 @@ function Mandat() {
     fetchDocument();
   }, [id]);
 
-  const scanRibAutomatically = async (file) => {
+  const openNomOverlay = (importId, scanOk) => {
+    if (importId !== importIdRef.current) return;
+    if (!nomRef.current.trim()) return;
+    setRibScanOk(scanOk);
+    setOverlayEditing(false);
+    setOverlayNom("");
+    setShowNomOverlay(true);
+  };
+
+  const confirmNomOverlay = () => setShowNomOverlay(false);
+
+  const validateNomOverlay = () => {
+    const nouveauNom = overlayNom.trim();
+    if (!nouveauNom) return;
+    setFormData((prev) => ({ ...prev, nom: nouveauNom }));
+    setShowNomOverlay(false);
+  };
+
+  const scanRibAutomatically = async (file, importId) => {
+    let scanOk = false;
     try {
       setScanning(true);
       setRibMessage("");
@@ -168,6 +199,7 @@ function Mandat() {
       const bicValide = data.bic && data.bic.trim() !== "";
 
       if (ribValide && bicValide) {
+        scanOk = true;
         setFormData((prev) => ({
           ...prev,
           rib: data.rib,
@@ -198,10 +230,13 @@ function Mandat() {
       );
     } finally {
       setScanning(false);
+      openNomOverlay(importId, scanOk);
     }
   };
 
   const handleRemoveRibDocument = () => {
+    importIdRef.current += 1;
+    setShowNomOverlay(false);
     setFormData((prev) => ({ ...prev, ribDocument: null }));
     setRibFileError("");
     setRibMessage("");
@@ -220,8 +255,12 @@ function Mandat() {
       setIsPdf(file.type === "application/pdf");
       setFormData((prev) => ({ ...prev, ribDocument: file }));
 
+      importIdRef.current += 1;
+      const importId = importIdRef.current;
       if (file.type === "application/pdf") {
-        scanRibAutomatically(file);
+        scanRibAutomatically(file, importId);
+      } else {
+        openNomOverlay(importId, false);
       }
       return;
     }
@@ -376,6 +415,81 @@ function Mandat() {
       <Helmet>
         <title>Mandat - Alfa Comptabilité</title>
       </Helmet>
+      {showNomOverlay && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="mb-3 text-lg font-bold text-slate-800">
+              Vérification du titulaire du compte
+            </h3>
+            {!ribScanOk && (
+              <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                Nous n'avons pas pu lire votre RIB automatiquement.
+              </p>
+            )}
+            <p className="mb-2 text-sm text-slate-600">
+              Veuillez vérifier que le nom ci-dessous correspond exactement au
+              titulaire du compte figurant sur le RIB joint
+              {ribScanOk ? " (ainsi que l'IBAN et le BIC récupérés)" : ""} :
+            </p>
+            <p className="mb-4 rounded-lg bg-slate-100 px-3 py-2 text-center font-semibold text-slate-800">
+              {formData.nom}
+            </p>
+
+            {overlayEditing ? (
+              <div className="space-y-4">
+                <input
+                  type="text"
+                  autoFocus
+                  value={overlayNom}
+                  onChange={(e) => setOverlayNom(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      validateNomOverlay();
+                    }
+                  }}
+                  placeholder={formData.nom}
+                  className="w-full rounded-xl border px-3 py-2 outline-none focus:ring-2 focus:ring-[#8B1538]"
+                />
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setOverlayEditing(false)}
+                    className="flex-1 rounded-xl border px-4 py-2 font-medium text-slate-600 hover:bg-slate-50"
+                  >
+                    Retour
+                  </button>
+                  <button
+                    type="button"
+                    onClick={validateNomOverlay}
+                    disabled={!overlayNom.trim()}
+                    className="flex-1 rounded-xl bg-[#8B1538] px-4 py-2 font-semibold text-white hover:bg-[#6f102d] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Valider
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => setOverlayEditing(true)}
+                  className="flex-1 rounded-xl border px-4 py-2 font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  Modifier le nom
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmNomOverlay}
+                  className="flex-1 rounded-xl bg-[#8B1538] px-4 py-2 font-semibold text-white hover:bg-[#6f102d]"
+                >
+                  Oui, c'est le titulaire
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-200 p-4 lg:p-10 relative">
         {/* Logo */}
         <img
