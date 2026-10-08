@@ -52,6 +52,7 @@ function Mandat() {
   const [overlayEditing, setOverlayEditing] = useState(false);
   const [overlayNom, setOverlayNom] = useState("");
   const [ribScanOk, setRibScanOk] = useState(false);
+  const [nomIntrouvable, setNomIntrouvable] = useState(false);
   const nomRef = useRef("");
   // Invalide un scan en cours si le fichier est retiré/remplacé entre-temps.
   const importIdRef = useRef(0);
@@ -152,10 +153,14 @@ function Mandat() {
     fetchDocument();
   }, [id]);
 
-  const openNomOverlay = (importId, scanOk) => {
+  // nomCorrespond : true = nom retrouvé dans le RIB (pas d'overlay), false =
+  // RIB lisible mais nom absent, null = RIB illisible (image, scan...).
+  const openNomOverlay = (importId, scanOk, nomCorrespond = null) => {
     if (importId !== importIdRef.current) return;
     if (!nomRef.current.trim()) return;
+    if (nomCorrespond === true) return;
     setRibScanOk(scanOk);
+    setNomIntrouvable(nomCorrespond === false);
     setOverlayEditing(false);
     setOverlayNom("");
     setShowNomOverlay(true);
@@ -172,6 +177,7 @@ function Mandat() {
 
   const scanRibAutomatically = async (file, importId) => {
     let scanOk = false;
+    let nomCorrespond = null;
     try {
       setScanning(true);
       setRibMessage("");
@@ -189,11 +195,12 @@ function Mandat() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ documentUrl }),
+          body: JSON.stringify({ documentUrl, nom: nomRef.current }),
         },
       );
 
       const data = await response.json();
+      nomCorrespond = data.nomCorrespond ?? null;
 
       const ribValide = data.rib && data.rib.trim() !== "";
       const bicValide = data.bic && data.bic.trim() !== "";
@@ -230,7 +237,7 @@ function Mandat() {
       );
     } finally {
       setScanning(false);
-      openNomOverlay(importId, scanOk);
+      openNomOverlay(importId, scanOk, nomCorrespond);
     }
   };
 
@@ -421,10 +428,16 @@ function Mandat() {
             <h3 className="mb-3 text-lg font-bold text-slate-800">
               Vérification du titulaire du compte
             </h3>
-            {!ribScanOk && (
+            {nomIntrouvable ? (
               <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                Nous n'avons pas pu lire votre RIB automatiquement.
+                Le nom saisi n'a pas été retrouvé sur votre RIB.
               </p>
+            ) : (
+              !ribScanOk && (
+                <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                  Nous n'avons pas pu lire votre RIB automatiquement.
+                </p>
+              )
             )}
             <p className="mb-2 text-sm text-slate-600">
               Veuillez vérifier que le nom ci-dessous correspond exactement au
